@@ -1236,6 +1236,14 @@ thead tr{background:linear-gradient(90deg,rgba(68,153,255,.04),rgba(160,112,255,
     <div class="nv-body" style="overflow-y:auto">
       <div class="nv-section">
         <div id="ml-import-status" style="font-size:12px;color:var(--txt3);margin-bottom:12px"></div>
+        <div id="ml-import-channel-wrap" style="display:none;margin-bottom:12px;background:var(--bg3);border:1px solid var(--border2);border-radius:10px;padding:10px 14px">
+          <div style="font-size:11px;color:var(--txt3);margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:.06em">Tipo de venda</div>
+          <div style="display:flex;gap:8px">
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;font-weight:600;color:var(--txt)"><input type="radio" name="ml-channel" value="auto" checked> Auto-detectar</label>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;font-weight:600;color:#00c87a"><input type="radio" name="ml-channel" value="full"> Todas FULL</label>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;font-weight:600;color:var(--txt)"><input type="radio" name="ml-channel" value="agencia"> Todas Agência</label>
+          </div>
+        </div>
         <div id="ml-import-list" style="display:flex;flex-direction:column;gap:8px"></div>
       </div>
     </div>
@@ -4932,11 +4940,15 @@ async function mlLoadOrders(){
   }).join('');
   const confirmBtn=document.getElementById('ml-import-confirm-btn');
   if(confirmBtn)confirmBtn.style.display='';
+  const wrap=document.getElementById('ml-import-channel-wrap');
+  if(wrap)wrap.style.display='';
 }
 function mlDoImport(){
   const checks=[...document.querySelectorAll('#ml-import-list input[type=checkbox]')];
   const selected=checks.filter(c=>c.checked).map(c=>parseInt(c.dataset.idx));
   if(!selected.length){alert('Selecione ao menos um pedido.');return;}
+  const channelRadio=document.querySelector('input[name="ml-channel"]:checked');
+  const channelOverride=channelRadio?channelRadio.value:'auto';
   _pushUndo();
   selected.forEach(i=>{
     const o=_mlImportOrders[i];
@@ -4947,7 +4959,7 @@ function mlDoImport(){
     const taxa_pct=item&&item.sale_fee&&preco>0?+(item.sale_fee/preco*100).toFixed(2):13;
     const frete=0;
     const data_v=(o.date_created||brToday()).slice(0,10);
-    const isFull=!!(o.fulfillment||(o.shipping&&o.shipping.logistic_type==='fulfillment'));
+    const isFull=channelOverride==='full'?true:channelOverride==='agencia'?false:!!(o.fulfillment||(o.shipping&&o.shipping.logistic_type==='fulfillment'));
     sales.push(calcSale({id:nid++,data:data_v,prod,cor:'',qtd,preco,custo:0,custos:[0],frete,taxa:taxa_pct,desconto:0,ads:0,fullML:isFull,flex:false,mlOrderId:String(o.id)}));
   });
   saveLS();renderAll();
