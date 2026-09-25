@@ -4862,7 +4862,7 @@ async function mlFetch(url){
   if(Date.now()>exp-120000)await mlRefreshToken();
   const token=localStorage.getItem('ml_access_token');
   if(!token)return null;
-  const r=await fetch(url,{headers:{Authorization:`Bearer ${token}`}});
+  const r=await fetch('/api/ml-token',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url,access_token:token})});
   return r.json();
 }
 async function mlCheckCallback(){
