@@ -818,8 +818,16 @@ thead tr{background:linear-gradient(90deg,rgba(68,153,255,.04),rgba(160,112,255,
         <svg viewBox="0 0 24 24" fill="#00a650" stroke="none" style="width:13px;height:13px"><polygon points="13,2 4,14 11,14 11,22 20,10 13,10"/></svg>
         <span style="font-weight:700;color:#00a650">FULL</span>
       </button>
+      <button class="est-stab" data-sf="historico" onclick="setEstStatusFilter('historico',this)" style="margin-left:4px">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="width:13px;height:13px"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        Histórico
+      </button>
     </div>
-    <div class="est-search-wrap">
+    <div id="est-historico-filter" style="display:none;align-items:center;gap:8px;margin-top:8px">
+      <label style="font-size:11px;color:var(--txt3)">Mês:</label>
+      <select id="est-historico-mes" onchange="renderEstoque()" style="font-size:12px;background:var(--bg3);color:var(--txt);border:1px solid var(--border2);border-radius:6px;padding:4px 8px;cursor:pointer"></select>
+    </div>
+    <div class="est-search-wrap" id="est-search-wrap-main">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;color:var(--txt3)"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
       <input type="search" id="est-search" placeholder="Buscar produto..." oninput="renderEstoque()" class="est-search-inp">
     </div>
@@ -1364,6 +1372,8 @@ const db=firebase.firestore();
 let sales=[];
 let nid=1;
 let estoque=[];
+let compras=[];
+let cid=1;
 // ADS por mês: {'2026-08': 150, '2026-09': 200, ...}
 let adsGastoByMonth=(()=>{try{return JSON.parse(localStorage.getItem('ml_ads_v2'))||{};}catch(e){return{};}})();
 // Migra valor legado (global) para o mês atual se existir
@@ -1433,7 +1443,7 @@ function saveLS(){
     const user=auth.currentUser;
     if(!user)return;
     try{
-      await db.collection('users').doc(user.uid).collection('data').doc('main').set({sales,images:customImages,estoque});
+      await db.collection('users').doc(user.uid).collection('data').doc('main').set({sales,images:customImages,estoque,compras});
       await db.collection('users').doc(user.uid).collection('data').doc('estoqueImages').set(estoqueImages);
     }catch(e){console.error('Erro ao salvar:',e);}
   },600);
@@ -3208,7 +3218,50 @@ function reativarSale(id){
 ══════════════════════════════════════════ */
 let _estEdit=null;
 
+function _renderHistoricoCompras(){
+  const mes=document.getElementById('est-historico-mes')?.value||'';
+  const lista=compras.filter(c=>!mes||c.data.startsWith(mes)).sort((a,b)=>b.data.localeCompare(a.data));
+  const totalGasto=lista.reduce((a,c)=>a+c.total,0);
+  const totalItens=lista.reduce((a,c)=>a+c.qtd,0);
+  document.getElementById('est-kpis').innerHTML=`
+    <div class="est-kpi-card" style="border-color:var(--yellow)">
+      <div class="est-kpi-label">COMPRAS NO PERÍODO</div>
+      <div class="est-kpi-val" style="color:var(--yellow)">${lista.length}</div>
+      <div class="est-kpi-sub">${totalItens} unidades</div>
+    </div>
+    <div class="est-kpi-card" style="border-color:var(--red)">
+      <div class="est-kpi-label">TOTAL INVESTIDO</div>
+      <div class="est-kpi-val" style="color:var(--red)">${brl(totalGasto)}</div>
+      <div class="est-kpi-sub">custo total de compras</div>
+    </div>`;
+  const content=document.getElementById('est-content');
+  if(!content)return;
+  if(!lista.length){content.innerHTML=`<div style="text-align:center;color:var(--txt3);padding:40px;font-size:13px">Nenhuma compra registrada neste período.</div>`;return;}
+  content.innerHTML=`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">
+    <thead><tr style="color:var(--txt3);font-size:10px;text-transform:uppercase;letter-spacing:.06em">
+      <th style="text-align:left;padding:8px 10px">Data</th>
+      <th style="text-align:left;padding:8px 10px">Produto</th>
+      <th style="text-align:center;padding:8px 10px">Qtd</th>
+      <th style="text-align:center;padding:8px 10px">Custo Unit.</th>
+      <th style="text-align:center;padding:8px 10px">Total</th>
+      <th style="text-align:center;padding:8px 10px">Destino</th>
+    </tr></thead>
+    <tbody>${lista.map(c=>{
+      const foto=_estPhotoUrl(c.produto,c.cor)||_estPhotoUrl(c.produto,'');
+      const destIcon=c.status==='full'?`<svg viewBox="0 0 24 24" fill="#00a650" stroke="none" style="width:12px;height:12px"><polygon points="13,2 4,14 11,14 11,22 20,10 13,10"/></svg> FULL`:c.status==='rota'?'Em rota':'Em estoque';
+      return`<tr style="border-top:1px solid var(--border1)">
+        <td style="padding:8px 10px;color:var(--txt3)">${c.data.split('-').reverse().join('/')}</td>
+        <td style="padding:8px 10px"><div style="display:flex;align-items:center;gap:8px">${foto?`<img src="${foto}" style="width:28px;height:28px;object-fit:contain;border-radius:4px;background:var(--bg3)">`:''}<span style="font-weight:600;color:var(--txt)">${c.produto}${c.cor?` · ${c.cor}`:''}</span></div></td>
+        <td style="padding:8px 10px;text-align:center;color:var(--txt)">${c.qtd}</td>
+        <td style="padding:8px 10px;text-align:center;color:var(--txt)">${brl(c.custo)}</td>
+        <td style="padding:8px 10px;text-align:center;font-weight:600;color:var(--red)">${brl(c.total)}</td>
+        <td style="padding:8px 10px;text-align:center;font-size:11px;color:var(--txt3)">${destIcon}</td>
+      </tr>`;
+    }).join('')}</tbody>
+  </table></div>`;
+}
 function renderEstoque(){
+  if(estStatusFilter==='historico'){_renderHistoricoCompras();return;}
   const q=(document.getElementById('est-search')?.value||'').toLowerCase().trim();
   let entries=estoque.filter(e=>e&&e.produto!=null).filter(e=>!q||(e.produto||'').toLowerCase().includes(q)||(e.cor||'').toLowerCase().includes(q));
   if(estStatusFilter==='rota')entries=entries.filter(e=>!e.status||e.status==='rota');
@@ -3352,7 +3405,20 @@ let estStatusFilter='all';
 function setEstStatusFilter(sf,btn){
   estStatusFilter=sf;
   document.querySelectorAll('.est-stab').forEach(b=>b.classList.toggle('on',b===btn));
+  const histFilter=document.getElementById('est-historico-filter');
+  const searchWrap=document.getElementById('est-search-wrap-main');
+  if(histFilter)histFilter.style.display=sf==='historico'?'flex':'none';
+  if(searchWrap)searchWrap.style.display=sf==='historico'?'none':'flex';
+  if(sf==='historico')_populateHistoricoMeses();
   renderEstoque();
+}
+function _populateHistoricoMeses(){
+  const sel=document.getElementById('est-historico-mes');
+  if(!sel)return;
+  const meses=[...new Set(compras.map(c=>c.data.slice(0,7)))].sort().reverse();
+  const cur=sel.value;
+  sel.innerHTML=meses.map(m=>`<option value="${m}"${m===cur?'selected':''}>${m.split('-').reverse().join('/')}</option>`).join('');
+  if(!cur&&meses.length)sel.value=meses[0];
 }
 let estSortCol='data', estSortDir=-1;
 const EST_SORT_COLS=['data','produto','cor','qtd','disp','custo','total'];
@@ -3792,6 +3858,7 @@ function saveEstEntry(){
     estoque=estoque.map(e=>e.id===_estEdit?entry:e);
   }else{
     estoque.push(entry);
+    compras.push({id:cid++,data:entry.data,produto:prod,cor:cor,qtd:qtd,custo:custo,total:+(custo*qtd).toFixed(2),status:entry.status});
   }
   saveLS();renderEstoque();
   document.getElementById('est-overlay').style.display='none';
@@ -3909,6 +3976,7 @@ function setupRealtimeSync(uid){
       const d=snap.data();
       const newSales=(d.sales||[]).map(s=>calcSale(s));
       const newEst=d.estoque||[];
+      const newCompras=d.compras||[];
       const salesChanged=JSON.stringify(newSales)!==JSON.stringify(sales);
       const estChanged=JSON.stringify(newEst)!==JSON.stringify(estoque);
       if(!salesChanged&&!estChanged)return;
@@ -3920,6 +3988,8 @@ function setupRealtimeSync(uid){
       Object.assign(imgCache,customImages);
       estoque=newEst;
       eid=Math.max(1,...estoque.map(e=>e.id||0))+1;
+      compras=newCompras;
+      cid=Math.max(1,...compras.map(c=>c.id||0))+1;
       _standardizeEstoquePhotos();
       renderAll();
       renderEstoque();
@@ -3965,7 +4035,7 @@ auth.onAuthStateChanged(async user=>{
               nid=Math.max(0,...sales.map(s=>s.id||0))+1;
               if(localImgs)Object.assign(customImages,JSON.parse(localImgs));
               Object.assign(imgCache,customImages);
-              await db.collection('users').doc(user.uid).collection('data').doc('main').set({sales,images:customImages,estoque});
+              await db.collection('users').doc(user.uid).collection('data').doc('main').set({sales,images:customImages,estoque,compras});
             }else{sales=[];nid=1;}
           }else{sales=[];nid=1;}
         }else{sales=[];nid=1;}
