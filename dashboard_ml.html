@@ -2438,7 +2438,7 @@ function renderNvEstPanel(){
       :'<div class="ep-item-img" style="display:flex;align-items:center;justify-content:center"><svg viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" stroke-width="1.5" style="width:16px;height:16px"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></div>';
     var stCls=e.status==='full'?'ep-status-full':e.status==='estoque'?'ep-status-estoque':'ep-status-rota';
     var stLbl=e.status==='full'?'Full ML':e.status==='estoque'?'Em Estoque':'Em Rota';
-    return '<div class="ep-item" onclick="nvEstPickItem('+e.custo+',\''+e.produto.replace(/'/g,"\\'")+'\')">'
+    return '<div class="ep-item" onclick="nvEstPickItem('+e.custo+',\''+e.produto.replace(/'/g,"\\'")+'\',\''+e.status+'\')">'
       +imgHtml
       +'<div class="ep-item-info">'
         +'<div class="ep-item-name">'+(e.produto||'')+(e.cor?' · <span style="color:var(--txt3)">'+e.cor+'</span>':'')+'</div>'
@@ -2448,11 +2448,12 @@ function renderNvEstPanel(){
       +'</div>';
   }).join('');
 }
-function nvEstPickItem(custo,produto){
+function nvEstPickItem(custo,produto,status){
   document.getElementById('f-custo').value=custo.toFixed(2);
   if(!document.getElementById('f-prod').value.trim()){
     document.getElementById('f-prod').value=produto;
   }
+  _nvFullML=status==='full';_nvFlex=false;_nvFullMLManual=true;_nvFlexManual=false;_updateChannelBtns();
   calcPrev();
 }
 
