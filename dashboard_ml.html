@@ -2025,14 +2025,37 @@ function _updateCustoFields(preserveVals){
   }
   single.style.display='none';
   multi.style.display='';
-  multi.innerHTML=`<div class="nv-lbl" style="margin-bottom:6px">Custo por unidade (R$)</div>
+  const wasSame=document.getElementById('f-custo-igual')?.checked??true;
+  multi.innerHTML=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+      <span class="nv-lbl">Custo por unidade (R$)</span>
+      <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:11px;color:var(--txt2);user-select:none">
+        <input type="checkbox" id="f-custo-igual" style="accent-color:var(--green);width:13px;height:13px;cursor:pointer"${wasSame?' checked':''}
+          onchange="_onCustoIgualChange()">
+        Mesmo custo para todas
+      </label>
+    </div>
     <div style="display:flex;flex-wrap:wrap;gap:8px">
       ${Array.from({length:qtd},(_,i)=>`<div style="flex:1;min-width:80px">
         <div style="font-size:9px;color:var(--txt3);margin-bottom:3px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Un.&nbsp;${i+1}</div>
         <input class="nv-inp" type="number" id="f-custo-u${i}" placeholder="0,00" step="0.01"${vals[i]?' value="'+vals[i]+'"':''}
-          oninput="this.dataset.manual='1';calcPrev()" style="text-align:center">
+          oninput="this.dataset.manual='1';_custoIgualProp(${i});calcPrev()" style="text-align:center">
       </div>`).join('')}
     </div>`;
+}
+function _custoIgualProp(srcIdx){
+  const chk=document.getElementById('f-custo-igual');
+  if(!chk||!chk.checked)return;
+  const val=document.getElementById('f-custo-u'+srcIdx)?.value||'';
+  const qtd=parseInt(document.getElementById('f-qtd').value)||1;
+  for(let i=0;i<qtd;i++){if(i===srcIdx)continue;const el=document.getElementById('f-custo-u'+i);if(el){el.value=val;el.dataset.manual='1';}}
+}
+function _onCustoIgualChange(){
+  const chk=document.getElementById('f-custo-igual');
+  if(!chk||!chk.checked)return;
+  const first=document.getElementById('f-custo-u0');
+  if(!first||!first.value)return;
+  _custoIgualProp(0);
+  calcPrev();
 }
 function _groupedDeduct(prod,custosArr){
   const g={};
