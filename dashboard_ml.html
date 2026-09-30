@@ -42,6 +42,7 @@ body.light{
   --shadow:0 8px 32px rgba(0,0,0,.15);--shadow2:0 2px 16px rgba(0,0,0,.10);
 }
 body.light .sb-logo svg{stroke:#555}
+body.light .badge.gh{background:#c8ffe0;color:#006b38}
 body.light .badge.g{background:#d1f5e8;color:#007a4d}
 body.light .badge.y{background:#fef3d0;color:#a06200}
 body.light .badge.r{background:#fde0e6;color:#b02040}
@@ -179,6 +180,7 @@ tbody tr:hover td{background:var(--bg3)}
 .spinner{width:14px;height:14px;border:2px solid var(--border2);border-top-color:var(--green);border-radius:50%;animation:spin .7s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 .badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:500;font-family:var(--mono)}
+.badge.gh{background:var(--greenhibg);color:var(--greenhi)}
 .badge.g{background:var(--greenbg);color:var(--green)}
 .badge.y{background:var(--yellowbg);color:var(--yellow)}
 .badge.r{background:var(--redbg);color:var(--red)}
@@ -1354,8 +1356,8 @@ function calcSale(s){
 function brl(v){return'R$ '+Math.abs(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});}
 function brls(v){return(v<0?'-':'')+brl(v);}
 function pct(v){return(v<0?'-':'')+Math.abs(v).toFixed(1)+'%';}
-function mgColor(mg){return mg>=26?'var(--greenhi)':mgColor(mg);}
-function mgColorBg(mg){return mg>=26?'var(--greenhibg)':mgColorBg(mg);}
+function mgColor(mg){return mg>=26?'var(--greenhi)':mg>=20?'var(--green)':mg>=0?'var(--yellow)':'var(--red)';}
+function mgColorBg(mg){return mg>=26?'var(--greenhibg)':mg>=20?'var(--greenbg)':mg>=0?'var(--yellowbg)':'var(--redbg)';}
 function brlK(v){const s=v<0?'-':'';const a=Math.abs(v);if(a>=1000000)return s+'R$'+(a/1000000).toLocaleString('pt-BR',{maximumFractionDigits:1})+'M';if(a>=1000)return s+'R$'+(a/1000).toLocaleString('pt-BR',{maximumFractionDigits:a%1000===0?0:1})+'k';if(a===0)return'R$0';return s+'R$'+a.toLocaleString('pt-BR',{maximumFractionDigits:0});}
 function set(id,v){const e=document.getElementById(id);if(e)e.textContent=v;}
 
@@ -1865,7 +1867,7 @@ async function renderTable(){
   body.innerHTML=rows.map(s=>{
     const[y,m,d]=s.data.split('-');
     const titulo=s.prod+(s.cor?' — '+s.cor:'');
-    const mc=s.margem>=20?'g':s.margem>=0?'y':'r';
+    const mc=s.margem>=26?'gh':s.margem>=20?'g':s.margem>=0?'y':'r';
     const lc=s.lucro>=0?'var(--green)':'var(--red)';
     const _chBadge=s.fullML
       ?`<span class="badge-full" onclick="event.stopPropagation();cycleChannel(${s.id})" title="Full ML → clique para Flex" style="flex-shrink:0"><svg viewBox="0 0 24 24" fill="currentColor" style="width:9px;height:9px"><polygon points="13,2 4,14 11,14 11,22 20,10 13,10"/></svg>FULL</span>`
@@ -4377,7 +4379,7 @@ function _buildWeeklyReport(from,to,pfrom,pto){
       ${kpi('Lucro Líquido',brls(c.lucroliq),p.lucroliq,c.lucroliq>=0?'var(--green)':'var(--red)')}
     </div>
     <div class="wr-grid3">
-      ${kpi('Margem Líquida',pct(c.margem),p.margem,c.margem>=20?'var(--green)':c.margem>=0?'var(--yellow)':'var(--red)')}
+      ${kpi('Margem Líquida',pct(c.margem),p.margem,mgColor(c.margem))}
       ${kpi('Pedidos',c.pedidos+' un.',p.pedidos,'var(--txt)')}
       ${kpi('Ticket Médio',brl(c.ticket),p.ticket,'var(--purple)')}
     </div>
