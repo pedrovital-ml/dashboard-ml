@@ -874,6 +874,10 @@ thead tr{background:linear-gradient(90deg,rgba(68,153,255,.04),rgba(160,112,255,
           <input class="nv-inp" type="text" id="ef-prod" placeholder="Ex: Microfone Fifine AM8" autocomplete="off" oninput="_efProdInput()" onkeydown="_efProdKey(event)" onfocus="_efProdInput()">
           <div id="ef-prod-ac" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:999;background:var(--bg2);border:1px solid var(--border2);border-radius:8px;box-shadow:0 6px 24px rgba(0,0,0,.5);max-height:200px;overflow-y:auto;margin-top:3px"></div>
         </div>
+        <div class="nv-field" style="margin-bottom:10px">
+          <label class="nv-lbl">Fornecedor <span style="color:var(--txt3);font-weight:400">(onde comprou)</span></label>
+          <input class="nv-inp" type="text" id="ef-fornecedor" placeholder="Ex: Shopee, Aliexpress, Magazaki, atacado...">
+        </div>
         <div class="nv-grid2">
           <div class="nv-field">
             <label class="nv-lbl">Data da compra</label>
@@ -1682,9 +1686,10 @@ function renderAll(){
 }
 
 const MEI_MENSAL=82.05;
+const MEI_START='2026-05';
 const MEI_CUTOFF='2026-10';
-function _meiForMonth(m){return m<MEI_CUTOFF?MEI_MENSAL:0;}
-function _totalMEI(){const ms=new Set(sales.filter(s=>!s.cancelada).map(s=>(s.data||'').slice(0,7)).filter(m=>m&&m<MEI_CUTOFF));return ms.size*MEI_MENSAL;}
+function _meiForMonth(m){return m>=MEI_START&&m<MEI_CUTOFF?MEI_MENSAL:0;}
+function _totalMEI(){const ms=new Set(sales.filter(s=>!s.cancelada).map(s=>(s.data||'').slice(0,7)).filter(m=>m&&m>=MEI_START&&m<MEI_CUTOFF));return ms.size*MEI_MENSAL;}
 function _activeMes(){
   // Retorna YYYY-MM do mês sendo visualizado — lê dt-from em qualquer período
   const f=document.getElementById('dt-from').value;
@@ -1773,7 +1778,7 @@ function renderKPIs(data){
       +'<span style="color:#ff9500;opacity:.7">'+_subLbl+'</span>'
       +_recSpan+_roasSpan+'</div></div>';})()+''+
     kcard(icoFrete,'Frete',brl(frete),fat>0?'('+pct(frete/fat*100)+')':'—',     'var(--yellow)','var(--yellowbg)',cmpArrow(frete,pfrete))+
-    (function(){const _tax4=data.reduce((a,s)=>a+(s.imposto_r||0),0);const _oldMs=new Set(data.filter(s=>!s.cancelada&&(s.data||'').slice(0,7)<MEI_CUTOFF).map(s=>(s.data||'').slice(0,7)));const _mei=_oldMs.size*MEI_MENSAL;const _tot=_tax4+_mei;const _sub=_mei>0&&_tax4>0?'MEI+4% do fat.':_mei>0?'DAS MEI mensal':fat>0?'('+pct(_tot/fat*100)+') 4% do fat.':'4% do faturamento';return kcard(icoImposto,'Impostos',brl(_tot),_sub,'var(--blue)','var(--bluebg)');})();
+    (function(){const _tax4=data.reduce((a,s)=>a+(s.imposto_r||0),0);const _oldMs=new Set(data.filter(s=>!s.cancelada&&(s.data||'').slice(0,7)>=MEI_START&&(s.data||'').slice(0,7)<MEI_CUTOFF).map(s=>(s.data||'').slice(0,7)));const _mei=_oldMs.size*MEI_MENSAL;const _tot=_tax4+_mei;const _sub=_mei>0&&_tax4>0?'MEI+4% do fat.':_mei>0?'DAS MEI mensal':fat>0?'('+pct(_tot/fat*100)+') 4% do fat.':'4% do faturamento';return kcard(icoImposto,'Impostos',brl(_tot),_sub,'var(--blue)','var(--bluebg)');})();
   set('k-receita',brl(fat));
   set('k-ads-v',n);
 }
@@ -3324,10 +3329,14 @@ function _renderHistoricoCompras(){
   const lista=compras.filter(c=>!mes||c.data.startsWith(mes)).sort((a,b)=>b.data.localeCompare(a.data));
   const totalGasto=lista.reduce((a,c)=>a+c.total,0);
   const totalItens=lista.reduce((a,c)=>a+c.qtd,0);
+  const mesLabel=mes?mes.split('-').reverse().join('/'):'todos os meses';
   document.getElementById('est-kpis').innerHTML=`
-    <div style="display:flex;align-items:center;gap:10px;grid-column:1/-1;margin-bottom:4px">
-      <button onclick="setEstStatusFilter('all',document.querySelector('#est-status-tabs .est-stab'))" style="background:none;border:1px solid var(--border2);border-radius:7px;color:var(--txt3);font-size:11px;padding:5px 12px;cursor:pointer;font-family:var(--font)">← Voltar ao estoque</button>
-      <span style="font-size:12px;color:var(--txt3)">Histórico de Compras</span>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;grid-column:1/-1;margin-bottom:4px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <button onclick="setEstStatusFilter('all',document.querySelector('#est-status-tabs .est-stab'))" style="background:none;border:1px solid var(--border2);border-radius:7px;color:var(--txt3);font-size:11px;padding:5px 12px;cursor:pointer;font-family:var(--font)">← Voltar ao estoque</button>
+        <span style="font-size:12px;color:var(--txt3)">Histórico de Compras</span>
+      </div>
+      ${lista.length?`<button onclick="_exportComprasContador('${mes}')" style="background:var(--green);color:#000;border:none;border-radius:7px;font-size:11px;font-weight:600;padding:6px 14px;cursor:pointer;font-family:var(--font);display:inline-flex;align-items:center;gap:5px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>Exportar para Contador</button>`:''}
     </div>
     <div class="est-kpi-card" style="border-color:var(--yellow)">
       <div class="est-kpi-label">COMPRAS NO PERÍODO</div>
@@ -3346,6 +3355,7 @@ function _renderHistoricoCompras(){
     <thead><tr style="color:var(--txt3);font-size:10px;text-transform:uppercase;letter-spacing:.06em">
       <th style="text-align:left;padding:8px 10px">Data</th>
       <th style="text-align:left;padding:8px 10px">Produto</th>
+      <th style="text-align:left;padding:8px 10px">Fornecedor</th>
       <th style="text-align:center;padding:8px 10px">Qtd</th>
       <th style="text-align:center;padding:8px 10px">Custo Unit.</th>
       <th style="text-align:center;padding:8px 10px">Total</th>
@@ -3357,6 +3367,7 @@ function _renderHistoricoCompras(){
       return`<tr style="border-top:1px solid var(--border1)">
         <td style="padding:8px 10px;color:var(--txt3)">${c.data.split('-').reverse().join('/')}</td>
         <td style="padding:8px 10px"><div style="display:flex;align-items:center;gap:8px">${foto?`<img src="${foto}" style="width:28px;height:28px;object-fit:contain;border-radius:4px;background:var(--bg3)">`:''}<span style="font-weight:600;color:var(--txt)">${c.produto}${c.cor?` · ${c.cor}`:''}</span></div></td>
+        <td style="padding:8px 10px;color:var(--txt3);font-size:11px">${c.fornecedor||'—'}</td>
         <td style="padding:8px 10px;text-align:center;color:var(--txt)">${c.qtd}</td>
         <td style="padding:8px 10px;text-align:center;color:var(--txt)">${brl(c.custo)}</td>
         <td style="padding:8px 10px;text-align:center;font-weight:600;color:var(--red)">${brl(c.total)}</td>
@@ -3364,6 +3375,51 @@ function _renderHistoricoCompras(){
       </tr>`;
     }).join('')}</tbody>
   </table></div>`;
+}
+
+function _exportComprasContador(mes){
+  const lista=compras.filter(c=>!mes||c.data.startsWith(mes)).sort((a,b)=>a.data.localeCompare(b.data));
+  if(!lista.length)return;
+  const mesLabel=mes?(()=>{const[y,m]=mes.split('-');const nomes=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];return nomes[parseInt(m)-1]+'/'+y;})():'Todos os meses';
+  const total=lista.reduce((a,c)=>a+c.total,0);
+  const totalItens=lista.reduce((a,c)=>a+c.qtd,0);
+  const rows=lista.map((c,i)=>`<tr>
+    <td>${i+1}</td>
+    <td>${c.data.split('-').reverse().join('/')}</td>
+    <td><strong>${c.produto}${c.cor?' - '+c.cor:''}</strong></td>
+    <td>${c.fornecedor||'—'}</td>
+    <td style="text-align:center">${c.qtd}</td>
+    <td style="text-align:right">R$ ${c.custo.toFixed(2).replace('.',',')}</td>
+    <td style="text-align:right"><strong>R$ ${c.total.toFixed(2).replace('.',',')}</strong></td>
+  </tr>`).join('');
+  const html=`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Compras ${mesLabel}</title>
+  <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;font-size:13px;color:#111;padding:24px 32px}
+  h1{font-size:18px;margin-bottom:4px}h2{font-size:13px;color:#555;font-weight:normal;margin-bottom:20px}
+  table{width:100%;border-collapse:collapse;margin-top:12px}
+  th{background:#f0f0f0;padding:8px 10px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.05em;border:1px solid #ddd}
+  td{padding:8px 10px;border:1px solid #ddd;vertical-align:middle}
+  tr:nth-child(even){background:#fafafa}
+  .total-row td{background:#111;color:#fff;font-weight:700;font-size:13px}
+  .footer{margin-top:20px;font-size:11px;color:#888;border-top:1px solid #ddd;padding-top:10px}
+  @media print{body{padding:12px 16px}.no-print{display:none}}
+  </style></head><body>
+  <div class="no-print" style="margin-bottom:16px;display:flex;gap:10px">
+    <button onclick="window.print()" style="background:#111;color:#fff;border:none;padding:8px 18px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600">🖨️ Imprimir / Salvar PDF</button>
+    <button onclick="window.close()" style="background:#eee;color:#333;border:none;padding:8px 14px;border-radius:6px;cursor:pointer;font-size:13px">Fechar</button>
+  </div>
+  <h1>Relatório de Compras — ${mesLabel}</h1>
+  <h2>Total: ${lista.length} compras · ${totalItens} unidades · Gerado em ${new Date().toLocaleDateString('pt-BR')}</h2>
+  <table>
+    <thead><tr><th>#</th><th>Data</th><th>Produto</th><th>Fornecedor</th><th style="text-align:center">Qtd</th><th style="text-align:right">Custo Unit.</th><th style="text-align:right">Total</th></tr></thead>
+    <tbody>${rows}
+    <tr class="total-row"><td colspan="4">TOTAL GERAL</td><td style="text-align:center">${totalItens}</td><td></td><td style="text-align:right">R$ ${total.toFixed(2).replace('.',',')}</td></tr>
+    </tbody>
+  </table>
+  <div class="footer">Relatório gerado pelo Dashboard ML · ${new Date().toLocaleString('pt-BR')}</div>
+  </body></html>`;
+  const w=window.open('','_blank','width=900,height=700');
+  w.document.write(html);
+  w.document.close();
 }
 function renderEstoque(){
   if(estStatusFilter==='historico'){_renderHistoricoCompras();return;}
@@ -3525,8 +3581,11 @@ function _populateHistoricoMeses(){
   if(!sel)return;
   const meses=[...new Set(compras.map(c=>c.data.slice(0,7)))].sort().reverse();
   const cur=sel.value;
-  sel.innerHTML=meses.map(m=>`<option value="${m}"${m===cur?'selected':''}>${m.split('-').reverse().join('/')}</option>`).join('');
-  if(!cur&&meses.length)sel.value=meses[0];
+  sel.innerHTML=`<option value="">Todos os meses</option>`+meses.map(m=>`<option value="${m}"${m===cur?'selected':''}>${m.split('-').reverse().join('/')}</option>`).join('');
+  if(!cur){
+    const defaultM=meses.includes('2026-10')?'2026-10':meses[0]||'';
+    sel.value=defaultM;
+  }
 }
 let estSortCol='data', estSortDir=-1;
 const EST_SORT_COLS=['data','produto','cor','qtd','disp','custo','total'];
@@ -3909,6 +3968,7 @@ function openEstModal(entry=null){
   document.getElementById('est-save-btn').textContent=entry?'Salvar alterações':'Salvar';
   document.getElementById('ef-data').value=entry?entry.data:brToday();
   document.getElementById('ef-prod').value=entry?entry.produto:'';
+  document.getElementById('ef-fornecedor').value=entry?.fornecedor||'';
   setEstCorSelection(entry?entry.cor:'');
   document.getElementById('ef-qtd').value=entry?entry.qtd:1;
   const tot=entry?(entry.custo*entry.qtd):0;
@@ -3967,7 +4027,8 @@ function saveEstEntry(){
     estoque=estoque.map(e=>e.id===_estEdit?entry:e);
   }else{
     estoque.push(entry);
-    compras.push({id:cid++,data:entry.data,produto:prod,cor:cor,qtd:qtd,custo:custo,total:+(custo*qtd).toFixed(2),status:entry.status});
+    const fornecedor=document.getElementById('ef-fornecedor').value.trim();
+    compras.push({id:cid++,data:entry.data,produto:prod,cor:cor,qtd:qtd,custo:custo,total:+(custo*qtd).toFixed(2),status:entry.status,fornecedor:fornecedor||''});
   }
   saveLS();renderEstoque();
   document.getElementById('est-overlay').style.display='none';
@@ -4513,7 +4574,7 @@ function _buildMonthlyReport(from,to,pfrom,pto){
       ${dreRow('(-) Custo do produto',brl(c.custo),'var(--red)')}
       ${dreRow('(-) Frete',brl(c.frete),'var(--red)')}
       ${dreRow('= Lucro bruto',brls(c.lucrobr),'var(--green)',true)}
-      ${_rptM<MEI_CUTOFF?dreRow('(-) Imposto DAS MEI',brl(MEI_MENSAL),'var(--blue)'):dreRow('(-) Imposto (4%)',brl(c.imposto),'var(--blue)')}
+      ${_rptM>=MEI_START&&_rptM<MEI_CUTOFF?dreRow('(-) Imposto DAS MEI',brl(MEI_MENSAL),'var(--blue)'):_rptM>=MEI_CUTOFF?dreRow('(-) Imposto (4%)',brl(c.imposto),'var(--blue)'):''}
       ${c.ads>0?dreRow('(-) Ads',brl(c.ads),'var(--red)'):''}
       ${dreRow('= Lucro líquido',brls(lucroliqMEI),lucroliqMEI>=0?'var(--green)':'var(--red)',true)}
     </div>
