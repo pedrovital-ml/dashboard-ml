@@ -1165,6 +1165,7 @@ thead tr{background:linear-gradient(90deg,rgba(68,153,255,.04),rgba(160,112,255,
           <div class="nv-calc-row"><span>Valor Taxa ML</span><span id="cp-taxa">R$ 0,00</span></div>
           <div class="nv-calc-row"><span>Frete + Tarifa</span><span id="cp-despesas">R$ 0,00</span></div>
           <div class="nv-calc-row" id="cp-ads-row" style="display:none"><span>⚡ ADS</span><span id="cp-ads-val" style="color:#ff9500">− R$ 0,00</span></div>
+          <div class="nv-calc-row" id="cp-imposto-row" style="display:none"><span>Imposto (4%)</span><span id="cp-imposto" style="color:var(--blue)">R$ 0,00</span></div>
           <div class="nv-calc-div"></div>
           <div class="nv-calc-total"><span>Lucro Líquido</span><span id="cp-lucro" style="color:var(--green)">R$ 0,00</span></div>
           <div style="margin-top:5px"><div class="nv-calc-row"><span>Margem</span><span id="cp-marg">0%</span></div></div>
@@ -1362,10 +1363,12 @@ function calcSale(s){
     if(s.descarte){lucro=+((fat-reemb)+tarifaEst-s.custo*s.qtd-s.frete-tarDev).toFixed(2);}
     else{lucro=+((fat-reemb)+tarifaEst-tarDev).toFixed(2);}
   } else {
-    lucro=+(fat-s.custo*s.qtd-s.frete-taxa_r-(s.ads||0)).toFixed(2);
+    const _imp=!s.cancelada&&(s.data||'')>='2026-10-01'?+(fat*0.04).toFixed(2):0;
+    lucro=+(fat-s.custo*s.qtd-s.frete-taxa_r-(s.ads||0)-_imp).toFixed(2);
   }
+  const imposto_r=!s.cancelada&&(s.data||'')>='2026-10-01'?+(fat*0.04).toFixed(2):0;
   margem=fat>0?+(lucro/fat*100).toFixed(2):0;
-  return{...s,taxa_r,lucro,margem};
+  return{...s,taxa_r,imposto_r,lucro,margem};
 }
 function brl(v){return'R$ '+Math.abs(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});}
 function brls(v){return(v<0?'-':'')+brl(v);}
@@ -1663,7 +1666,7 @@ function renderAll(){
   if(!_fullMLBackfilled){_fullMLBackfilled=true;_backfillFullML();}
   if(!_wrChecked){_wrChecked=true;_checkWeeklyReport();}
   const _allFat=sales.filter(s=>!s.cancelada).reduce((a,s)=>a+s.preco,0);
-  if(typeof _checkMilestones==='function')setTimeout(()=>_checkMilestones(_allFat),800);
+  if(typeof _checkMilestones==='function')_checkMilestones(_allFat);
   const data=getFiltered();
   const from=document.getElementById('dt-from').value;
   const to=document.getElementById('dt-to').value;
@@ -1679,6 +1682,9 @@ function renderAll(){
 }
 
 const MEI_MENSAL=82.05;
+const MEI_CUTOFF='2026-10';
+function _meiForMonth(m){return m<MEI_CUTOFF?MEI_MENSAL:0;}
+function _totalMEI(){const ms=new Set(sales.filter(s=>!s.cancelada).map(s=>(s.data||'').slice(0,7)).filter(m=>m&&m<MEI_CUTOFF));return ms.size*MEI_MENSAL;}
 function _activeMes(){
   // Retorna YYYY-MM do mês sendo visualizado — lê dt-from em qualquer período
   const f=document.getElementById('dt-from').value;
@@ -1686,9 +1692,9 @@ function _activeMes(){
   return brToday().slice(0,7);
 }
 function _dedMensal(){
-  if(activePeriod==='tudo')return _totalAdsGasto();
-  if(activePeriod!=='mes')return _adsForMonth(_activeMes());
-  return _adsForMonth(_activeMes())+MEI_MENSAL;
+  if(activePeriod==='tudo')return _totalAdsGasto()+_totalMEI();
+  const m=_activeMes();
+  return _adsForMonth(m)+_meiForMonth(m);
 }
 function renderTopBar(data){
   const fat=data.reduce((a,s)=>a+s.preco,0);
@@ -1767,7 +1773,7 @@ function renderKPIs(data){
       +'<span style="color:#ff9500;opacity:.7">'+_subLbl+'</span>'
       +_recSpan+_roasSpan+'</div></div>';})()+''+
     kcard(icoFrete,'Frete',brl(frete),fat>0?'('+pct(frete/fat*100)+')':'—',     'var(--yellow)','var(--yellowbg)',cmpArrow(frete,pfrete))+
-    kcard(icoImposto,'Impostos','R$ 82,05','MEI fixo mensal','var(--blue)','var(--bluebg)');
+    (function(){const _tax4=data.reduce((a,s)=>a+(s.imposto_r||0),0);const _oldMs=new Set(data.filter(s=>!s.cancelada&&(s.data||'').slice(0,7)<MEI_CUTOFF).map(s=>(s.data||'').slice(0,7)));const _mei=_oldMs.size*MEI_MENSAL;const _tot=_tax4+_mei;const _sub=_mei>0&&_tax4>0?'MEI+4% do fat.':_mei>0?'DAS MEI mensal':fat>0?'('+pct(_tot/fat*100)+') 4% do fat.':'4% do faturamento';return kcard(icoImposto,'Impostos',brl(_tot),_sub,'var(--blue)','var(--bluebg)');})();
   set('k-receita',brl(fat));
   set('k-ads-v',n);
 }
@@ -2545,8 +2551,11 @@ function calcPrev(){
   const ads=parseFloat(document.getElementById('f-ads')?.value)||0;
   const fat=preco-desc;
   const taxa_r=fat*taxa/100;
+  const saleDate=document.getElementById('f-data')?.value||brToday();
+  const isNewTax=saleDate>='2026-10-01';
+  const imposto_r=isNewTax?fat*0.04:0;
   const freteTot=frete;
-  const lucro=fat-custoTotal-freteTot-taxa_r-ads;
+  const lucro=fat-custoTotal-freteTot-taxa_r-ads-imposto_r;
   const marg=fat>0?lucro/fat*100:0;
   const descRow=document.getElementById('cp-desc-row');
   if(descRow)descRow.style.display=desc>0?'flex':'none';
@@ -2555,6 +2564,9 @@ function calcPrev(){
   set('cp-desc','− '+brl(desc));
   set('cp-taxa',brl(taxa_r));
   set('cp-ads-val','− '+brl(ads));
+  const impostoRow=document.getElementById('cp-imposto-row');
+  if(impostoRow)impostoRow.style.display=isNewTax&&fat>0?'flex':'none';
+  set('cp-imposto','− '+brl(imposto_r));
   set('cp-despesas',brl(freteTot+taxa_r));
   const lel=document.getElementById('cp-lucro');
   lel.textContent=brls(lucro);lel.style.color=lucro>=0?'var(--green)':'var(--red)';
@@ -2832,10 +2844,10 @@ function renderStats(){
     const pn=s.nome||'Outros';
     statsByM[m].prods[pn]=(statsByM[m].prods[pn]||0)+f;
   });
-  // deduz MEI fixo e ADS do respectivo mês
+  // deduz ADS mensal + MEI para meses antes de out/2026 (4% já por venda a partir de out/2026)
   Object.keys(statsByM).forEach(m=>{
-    statsByM[m].lucro-=MEI_MENSAL;
     statsByM[m].lucro-=_adsForMonth(m);
+    statsByM[m].lucro-=_meiForMonth(m);
   });
   statsMonths=Object.keys(statsByM).sort();
   if(!statsMonths.includes(activeStatsTab)&&activeStatsTab!=='geral')activeStatsTab='geral';
@@ -4145,6 +4157,7 @@ auth.onAuthStateChanged(async user=>{
       .then(s=>{if(s.exists)Object.assign(estoqueImages,s.data());_standardizeEstoquePhotos();renderEstoque();})
       .catch(()=>{});
     renderAll();
+    if(typeof _showPendingMilestone==='function')_showPendingMilestone();
     const _savedPage=(()=>{try{return localStorage.getItem('activePage')||'dashboard';}catch(e){return'dashboard';}})();
     if(_savedPage!=='dashboard')showPage(_savedPage);
   }else{
@@ -4308,14 +4321,15 @@ function _wrMetrics(salesArr){
   const frete=s.reduce((a,x)=>a+x.frete,0);
   const taxa=s.reduce((a,x)=>a+x.taxa_r,0);
   const ads=s.reduce((a,x)=>a+(x.ads||0),0);
+  const imposto=s.reduce((a,x)=>a+(x.imposto_r||0),0);
   const lucrobr=fat-custo-frete-taxa;
-  const lucroliq=lucrobr-ads;
+  const lucroliq=lucrobr-ads-imposto;
   const margem=fat>0?lucroliq/fat*100:0;
   const pedidos=s.reduce((a,x)=>a+x.qtd,0);
   const ticket=pedidos>0?fat/pedidos:0;
   const acos=fat>0?ads/fat*100:0;
   const roas=ads>0?fat/ads:0;
-  return{fat,custo,frete,taxa,ads,lucrobr,lucroliq,margem,pedidos,ticket,acos,roas,list:s};
+  return{fat,custo,frete,taxa,ads,imposto,lucrobr,lucroliq,margem,pedidos,ticket,acos,roas,list:s};
 }
 function _wrCmp(cur,prev){
   if(prev===0)return'';
@@ -4418,6 +4432,7 @@ function _buildWeeklyReport(from,to,pfrom,pto){
       ${dreRow('(-) Custo do produto',brl(c.custo),'var(--red)')}
       ${dreRow('(-) Frete',brl(c.frete),'var(--red)')}
       ${dreRow('= Lucro bruto',brls(c.lucrobr),'var(--green)',true)}
+      ${dreRow('(-) Imposto (4%)',brl(c.imposto),'var(--blue)')}
       ${c.ads>0?dreRow('(-) Ads',brl(c.ads),'var(--red)'):''}
       ${dreRow('= Lucro líquido',brls(c.lucroliq),c.lucroliq>=0?'var(--green)':'var(--red)',true)}
     </div>
@@ -4452,9 +4467,9 @@ function _buildMonthlyReport(from,to,pfrom,pto){
     <span style="font-family:var(--mono);color:${color||'var(--txt)'}">${bold?'= ':''} ${val}</span>
   </div>`;
 
-  // MEI dedução mensal no lucro líquido
-  const lucroliqMEI=c.lucroliq-MEI_MENSAL;
-  const plucroliqMEI=p.lucroliq-MEI_MENSAL;
+  const _rptM=from.slice(0,7);const _prvM=pfrom.slice(0,7);
+  const lucroliqMEI=c.lucroliq-_meiForMonth(_rptM);
+  const plucroliqMEI=p.lucroliq-_meiForMonth(_prvM);
   const margemMEI=c.fat>0?lucroliqMEI/c.fat*100:0;
 
   const pts=[];
@@ -4493,7 +4508,7 @@ function _buildMonthlyReport(from,to,pfrom,pto){
       ${dreRow('(-) Custo do produto',brl(c.custo),'var(--red)')}
       ${dreRow('(-) Frete',brl(c.frete),'var(--red)')}
       ${dreRow('= Lucro bruto',brls(c.lucrobr),'var(--green)',true)}
-      ${dreRow('(-) Imposto MEI',brl(MEI_MENSAL),'var(--red)')}
+      ${_rptM<MEI_CUTOFF?dreRow('(-) Imposto DAS MEI',brl(MEI_MENSAL),'var(--blue)'):dreRow('(-) Imposto (4%)',brl(c.imposto),'var(--blue)')}
       ${c.ads>0?dreRow('(-) Ads',brl(c.ads),'var(--red)'):''}
       ${dreRow('= Lucro líquido',brls(lucroliqMEI),lucroliqMEI>=0?'var(--green)':'var(--red)',true)}
     </div>
@@ -5312,22 +5327,41 @@ function _mlMatchProd(mlTitle){
     return'🎯';
   }
 
+  function _getPending(){try{return new Set(JSON.parse(localStorage.getItem('ml_milestones_pending')||'[]'));}catch(e){return new Set();}}
+  function _savePending(s){localStorage.setItem('ml_milestones_pending',JSON.stringify([...s]));}
+
+  function _showMilestone(val){
+    const fmt=v=>'R$ '+(v>=1000?(v/1000).toLocaleString('pt-BR',{minimumFractionDigits:0})+'k':v.toLocaleString('pt-BR'));
+    document.getElementById('ms-emoji').textContent=_emoji(val);
+    document.getElementById('ms-val').textContent=fmt(val);
+    document.getElementById('ms-msg').textContent=_milestone(val);
+    document.getElementById('milestone-overlay').classList.add('show');
+    _spawnConfetti();
+  }
+
+  // Chamado em cada renderAll() — só registra como pendente, não exibe
   window._checkMilestones=function(totalFat){
     const milestones=_buildMilestones();
     const shown=_getShown();
-    const crossed=milestones.filter(m=>totalFat>=m&&!shown.has(m));
+    const pending=_getPending();
+    const crossed=milestones.filter(m=>totalFat>=m&&!shown.has(m)&&!pending.has(m));
     if(!crossed.length)return;
-    const highest=Math.max(...crossed);
-    crossed.forEach(m=>shown.add(m));
-    _saveShown(shown);
-    const fmt=v=>'R$ '+(v>=1000?(v/1000).toLocaleString('pt-BR',{minimumFractionDigits:0})+'k':v.toLocaleString('pt-BR'));
-    document.getElementById('ms-emoji').textContent=_emoji(highest);
-    document.getElementById('ms-val').textContent=fmt(highest);
-    document.getElementById('ms-msg').textContent=_milestone(highest);
-    const ov=document.getElementById('milestone-overlay');
-    ov.classList.add('show');
-    _spawnConfetti();
+    crossed.forEach(m=>pending.add(m));
+    _savePending(pending);
   };
+
+  // Chamado uma única vez no load da página — exibe se houver pendente
+  window._showPendingMilestone=function(){
+    const pending=_getPending();
+    if(!pending.size)return;
+    const highest=Math.max(...pending);
+    const shown=_getShown();
+    pending.forEach(m=>shown.add(m));
+    _saveShown(shown);
+    _savePending(new Set());
+    setTimeout(()=>_showMilestone(highest),1200);
+  };
+
   window.closeMilestone=function(){
     document.getElementById('milestone-overlay').classList.remove('show');
   };
