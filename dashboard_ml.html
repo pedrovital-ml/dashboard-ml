@@ -1467,7 +1467,7 @@ function saveLS(){
     const user=auth.currentUser;
     if(!user)return;
     try{
-      await db.collection('users').doc(user.uid).collection('data').doc('main').set({sales,images:customImages,estoque,compras});
+      await db.collection('users').doc(user.uid).collection('data').doc('main').set({sales,images:customImages,estoque,compras,adsGasto:adsGastoByMonth,adsReceita:adsReceitaByMonth});
       await db.collection('users').doc(user.uid).collection('data').doc('estoqueImages').set(estoqueImages);
     }catch(e){console.error('Erro ao salvar:',e);}
   },600);
@@ -3807,6 +3807,7 @@ function saveAdsGasto(){
   if(r>0)adsReceitaByMonth[m]=r; else delete adsReceitaByMonth[m];
   localStorage.setItem('ml_ads_v2',JSON.stringify(adsGastoByMonth));
   localStorage.setItem('ml_ads_receita_v1',JSON.stringify(adsReceitaByMonth));
+  saveLS();
   closeAdsModal();
   renderAll();
 }
@@ -4098,6 +4099,8 @@ function setupRealtimeSync(uid){
       eid=Math.max(1,...estoque.map(e=>e.id||0))+1;
       compras=newCompras;
       cid=Math.max(1,...compras.map(c=>c.id||0))+1;
+      if(d.adsGasto){Object.keys(adsGastoByMonth).forEach(k=>delete adsGastoByMonth[k]);Object.assign(adsGastoByMonth,d.adsGasto);localStorage.setItem('ml_ads_v2',JSON.stringify(adsGastoByMonth));}
+      if(d.adsReceita){Object.keys(adsReceitaByMonth).forEach(k=>delete adsReceitaByMonth[k]);Object.assign(adsReceitaByMonth,d.adsReceita);localStorage.setItem('ml_ads_receita_v1',JSON.stringify(adsReceitaByMonth));}
       _standardizeEstoquePhotos();
       renderAll();
       renderEstoque();
@@ -4131,6 +4134,8 @@ auth.onAuthStateChanged(async user=>{
         Object.assign(imgCache,customImages);
         estoque=d.estoque||[];
         eid=Math.max(0,...estoque.map(e=>e.id||0))+1;
+        if(d.adsGasto){Object.assign(adsGastoByMonth,d.adsGasto);localStorage.setItem('ml_ads_v2',JSON.stringify(adsGastoByMonth));}
+        if(d.adsReceita){Object.assign(adsReceitaByMonth,d.adsReceita);localStorage.setItem('ml_ads_receita_v1',JSON.stringify(adsReceitaByMonth));}
       }else{
         // Firebase vazio — verifica se há dados locais para migrar
         const localSales=localStorage.getItem('mldb_v4');
@@ -4143,7 +4148,7 @@ auth.onAuthStateChanged(async user=>{
               nid=Math.max(0,...sales.map(s=>s.id||0))+1;
               if(localImgs)Object.assign(customImages,JSON.parse(localImgs));
               Object.assign(imgCache,customImages);
-              await db.collection('users').doc(user.uid).collection('data').doc('main').set({sales,images:customImages,estoque,compras});
+              await db.collection('users').doc(user.uid).collection('data').doc('main').set({sales,images:customImages,estoque,compras,adsGasto:adsGastoByMonth,adsReceita:adsReceitaByMonth});
             }else{sales=[];nid=1;}
           }else{sales=[];nid=1;}
         }else{sales=[];nid=1;}
