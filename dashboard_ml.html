@@ -106,6 +106,7 @@ html,body{height:100%;font-family:var(--font);font-size:13px;color:var(--txt);ba
 .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:1px}
 .cal-day{height:34px;display:flex;align-items:center;justify-content:center;font-size:12px;cursor:pointer;color:var(--txt);transition:all .1s;border-radius:6px;position:relative;user-select:none}
 .cal-day.empty{cursor:default}
+.cal-day.disabled{cursor:default;color:var(--txt3);opacity:.35;pointer-events:none}
 .cal-day.other{color:var(--txt3);cursor:default}
 .cal-day:not(.empty):not(.other):not(.start):not(.end):hover{background:var(--bg4)}
 .cal-day.today{font-weight:700;color:var(--green)}
@@ -495,6 +496,19 @@ input[type=number]{-moz-appearance:textfield}
 .est-toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:var(--green);color:#061a0e;font-size:12px;font-weight:700;padding:8px 18px;border-radius:10px;z-index:999;opacity:0;transition:opacity .2s;pointer-events:none}
 .est-toast.show{opacity:1}
 .est-toast.warn{background:#ff9500;color:#1a0800}
+#milestone-overlay{position:fixed;inset:0;z-index:10001;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.75);backdrop-filter:blur(8px);opacity:0;transition:opacity .4s;pointer-events:none}
+#milestone-overlay.show{opacity:1;pointer-events:all}
+.milestone-card{background:linear-gradient(145deg,#111827,#0d1320);border:1.5px solid rgba(255,215,0,.35);border-radius:24px;padding:44px 52px;text-align:center;max-width:420px;width:90%;position:relative;overflow:hidden;box-shadow:0 0 60px rgba(255,215,0,.12),0 24px 60px rgba(0,0,0,.6)}
+.milestone-card::before{content:'';position:absolute;inset:0;background:radial-gradient(circle at 50% 0%,rgba(255,215,0,.08),transparent 65%);pointer-events:none}
+.milestone-emoji{font-size:52px;line-height:1;margin-bottom:14px}
+.milestone-title{font-size:13px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,215,0,.7);margin-bottom:8px}
+.milestone-val{font-size:38px;font-weight:800;font-family:var(--mono);color:#ffd700;letter-spacing:-.01em;margin-bottom:6px}
+.milestone-msg{font-size:14px;color:var(--txt);opacity:.85;margin-bottom:28px;line-height:1.5}
+.milestone-close{padding:11px 32px;background:linear-gradient(90deg,#c8a800,#ffd700);border:none;border-radius:10px;color:#111;font-size:13px;font-weight:800;cursor:pointer;font-family:var(--font);letter-spacing:.03em;transition:opacity .15s}
+.milestone-close:hover{opacity:.85}
+.ms-confetti{position:absolute;pointer-events:none;top:0;left:0;width:100%;height:100%;overflow:hidden}
+@keyframes ms-fall{0%{transform:translateY(-10px) rotate(0deg);opacity:1}100%{transform:translateY(420px) rotate(720deg);opacity:0}}
+.ms-dot{position:absolute;width:7px;height:7px;border-radius:2px;animation:ms-fall linear forwards}
 .est-vend-ctrl{display:inline-flex;align-items:center;gap:4px}
 .est-vend-btn{width:22px;height:22px;border-radius:6px;border:1px solid var(--border2);background:var(--bg3);color:var(--txt);font-size:14px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .1s;font-family:inherit}
 .est-vend-btn:hover:not(:disabled){background:var(--bg4);border-color:var(--green)}
@@ -1388,6 +1402,8 @@ function _adsForMonth(m){return adsGastoByMonth[m]||0;}
 let adsReceitaByMonth=(()=>{try{return JSON.parse(localStorage.getItem('ml_ads_receita_v1'))||{};}catch(e){return{};}})();
 function _adsReceitaForMonth(m){return adsReceitaByMonth[m]||0;}
 function _adsRoasForMonth(m){const g=_adsForMonth(m);return g>0?_adsReceitaForMonth(m)/g:0;}
+function _totalAdsGasto(){return Object.values(adsGastoByMonth).reduce((a,v)=>a+(v||0),0);}
+function _totalAdsReceita(){return Object.values(adsReceitaByMonth).reduce((a,v)=>a+(v||0),0);}
 // Compatibilidade
 let adsGasto=0;
 let eid=1;
@@ -1575,7 +1591,8 @@ function renderCalGrid(){
   for(let i=0;i<firstWd;i++)html+=`<div class="cal-day empty"></div>`;
   for(let d=1;d<=daysInMonth;d++){
     const ds=calY+'-'+String(calM+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
-    let cls='cal-day';
+    const isFuture=ds>today;
+    let cls='cal-day'+(isFuture?' disabled':'');
     if(ds===today)cls+=' today';
     const hov=calStart&&!calEnd&&calHover?calHover:null;
     const rangeEnd=calEnd||(hov&&hov>calStart?hov:null);
@@ -1584,10 +1601,12 @@ function renderCalGrid(){
     const isEnd=ds===calEnd;
     const hasRange=!!(calStart&&calEnd&&calStart!==calEnd);
     const inRange=(calStart&&rangeEnd&&ds>calStart&&ds<rangeEnd)||(calStart&&rangeEndRev&&ds>rangeEndRev&&ds<calStart);
-    if(isStart){cls+=' start';if(hasRange)cls+=' has-range';}
-    if(isEnd){cls+=' end';if(hasRange)cls+=' has-range';}
-    if(inRange)cls+=' in-range';
-    html+=`<div class="${cls}" data-ds="${ds}">${d}</div>`;
+    if(!isFuture){
+      if(isStart){cls+=' start';if(hasRange)cls+=' has-range';}
+      if(isEnd){cls+=' end';if(hasRange)cls+=' has-range';}
+      if(inRange)cls+=' in-range';
+    }
+    html+=`<div class="${cls}"${isFuture?'':` data-ds="${ds}"`}>${d}</div>`;
   }
   document.getElementById('cal-grid').innerHTML=html;
   const lbl=document.getElementById('cal-range-lbl');
@@ -1643,6 +1662,8 @@ let _fullMLBackfilled=false,_wrChecked=false;
 function renderAll(){
   if(!_fullMLBackfilled){_fullMLBackfilled=true;_backfillFullML();}
   if(!_wrChecked){_wrChecked=true;_checkWeeklyReport();}
+  const _allFat=sales.filter(s=>!s.cancelada).reduce((a,s)=>a+s.preco,0);
+  if(typeof _checkMilestones==='function')setTimeout(()=>_checkMilestones(_allFat),800);
   const data=getFiltered();
   const from=document.getElementById('dt-from').value;
   const to=document.getElementById('dt-to').value;
@@ -1665,6 +1686,7 @@ function _activeMes(){
   return brToday().slice(0,7);
 }
 function _dedMensal(){
+  if(activePeriod==='tudo')return _totalAdsGasto();
   if(activePeriod!=='mes')return _adsForMonth(_activeMes());
   return _adsForMonth(_activeMes())+MEI_MENSAL;
 }
@@ -1729,15 +1751,20 @@ function renderKPIs(data){
   document.getElementById('kpi-bot').innerHTML=
     kcard(icoCusto,'Custos',brl(custo),fat>0?'('+pct(custo/fat*100)+')':'—',    'var(--yellow)','var(--yellowbg)',cmpArrow(custo,pcusto))+
     kcard(icoTarifa,'Tarifas ML',brl(tarifa),fat>0?'('+pct(tarifa/fat*100)+')':'—','#8892aa','rgba(136,146,170,.08)',cmpArrow(tarifa,ptarifa))+
-    (function(){var _am=_activeMes(),_ag=_adsForMonth(_am),_ar=_adsReceitaForMonth(_am),_aroas=_adsRoasForMonth(_am);
+    (function(){
+    var _isTudo=activePeriod==='tudo';
+    var _ag=_isTudo?_totalAdsGasto():_adsForMonth(_activeMes());
+    var _ar=_isTudo?_totalAdsReceita():_adsReceitaForMonth(_activeMes());
+    var _aroas=_ag>0?_ar/_ag:0;
     var _recSpan=_ar>0?'<span style="color:#00a650;opacity:.9;font-size:11px">Receita ADS: '+brl(_ar)+'</span>':'';
     var _roasSpan=_aroas>0?'<span style="color:#ff9500;opacity:.9;font-size:11px">ROAS: '+_aroas.toFixed(2)+'x</span>':'';
+    var _subLbl=fat>0&&_ag>0?(_isTudo?'Total acumulado · '+pct(_ag/fat*100)+' do fat.':'Gasto: '+pct(_ag/fat*100)+' do fat.'):'Clique para registrar';
     return'<div class="kcard" style="--kcard-accent:#ff9500;cursor:pointer" onclick="openAdsModal()">'
       +'<div class="kcard-head"><div class="kcard-icon" style="background:rgba(255,149,0,.08)">'+icoAds+'</div>'
       +'<span class="kcard-lbl" style="color:#ff9500">ADS</span></div>'
       +'<div class="kcard-val" style="color:#ff9500;font-size:1.05em">'+brl(_ag)+'</div>'
       +'<div class="kcard-sub" style="display:flex;flex-direction:column;gap:2px">'
-      +'<span style="color:#ff9500;opacity:.7">'+(fat>0&&_ag>0?'Gasto: '+pct(_ag/fat*100)+' do fat.':'Clique para registrar')+'</span>'
+      +'<span style="color:#ff9500;opacity:.7">'+_subLbl+'</span>'
       +_recSpan+_roasSpan+'</div></div>';})()+''+
     kcard(icoFrete,'Frete',brl(frete),fat>0?'('+pct(frete/fat*100)+')':'—',     'var(--yellow)','var(--yellowbg)',cmpArrow(frete,pfrete))+
     kcard(icoImposto,'Impostos','R$ 82,05','MEI fixo mensal','var(--blue)','var(--bluebg)');
@@ -5118,6 +5145,7 @@ function mlDoImport(){
       if(best)custo=best.custo||0;
     }
     sales.push(calcSale({id:nid++,data:data_v,prod,cor:'',qtd,preco,custo,custos:[custo],frete,taxa:taxa_pct,desconto:0,ads:0,fullML:isFull,flex:false,mlOrderId:String(o.id)}));
+    if(custo>0)_groupedDeduct(prod,Array(qtd).fill(custo));
   });
   saveLS();renderAll();
   closeMlImport();
@@ -5227,6 +5255,84 @@ function _mlMatchProd(mlTitle){
     <div class="wr-body" id="wr-body"></div>
   </div>
 </div>
+
+<!-- MILESTONE CELEBRATION -->
+<div id="milestone-overlay" onclick="if(event.target===this)closeMilestone()">
+  <div class="milestone-card">
+    <div class="ms-confetti" id="ms-confetti"></div>
+    <div class="milestone-emoji" id="ms-emoji">🏆</div>
+    <div class="milestone-title">Meta atingida!</div>
+    <div class="milestone-val" id="ms-val">R$ 0</div>
+    <div class="milestone-msg" id="ms-msg">Parabéns pela conquista!</div>
+    <button class="milestone-close" onclick="closeMilestone()">Continuar 🚀</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  function _buildMilestones(){
+    const m=[10000,25000,50000];
+    for(let v=100000;v<=5000000;v+=50000)m.push(v);
+    return m;
+  }
+  function _getShown(){try{return new Set(JSON.parse(localStorage.getItem('ml_milestones')||'[]'));}catch(e){return new Set();}}
+  function _saveShown(s){localStorage.setItem('ml_milestones',JSON.stringify([...s]));}
+
+  function _spawnConfetti(){
+    const c=document.getElementById('ms-confetti');
+    if(!c)return;
+    c.innerHTML='';
+    const colors=['#ffd700','#ff6b6b','#4dff8a','#4d9fff','#ff9500','#c084fc','#fb7185','#34d399'];
+    for(let i=0;i<42;i++){
+      const d=document.createElement('div');
+      d.className='ms-dot';
+      d.style.cssText=`left:${Math.random()*100}%;background:${colors[i%colors.length]};animation-duration:${1.2+Math.random()*1.4}s;animation-delay:${Math.random()*.6}s;width:${5+Math.random()*6}px;height:${5+Math.random()*6}px;border-radius:${Math.random()>0.5?'50%':'2px'}`;
+      c.appendChild(d);
+    }
+  }
+
+  function _milestone(val){
+    const msgs={
+      10000:'Primeiro passo dado! R$ 10k de faturamento é o começo de tudo. 💪',
+      25000:'R$ 25k no bolso! Você está construindo algo sólido.',
+      50000:'Meio caminho para os 100k! R$ 50k de faturamento — incrível! 🔥',
+      100000:'R$ 100.000! Seis dígitos. Isso não é sorte, é trabalho duro. 💎',
+    };
+    const def=`R$ ${(val/1000).toFixed(0)}k de faturamento total. Cada venda valeu a pena! 🌟`;
+    return msgs[val]||def;
+  }
+
+  function _emoji(val){
+    if(val>=1000000)return'👑';
+    if(val>=500000)return'💰';
+    if(val>=200000)return'🏆';
+    if(val>=100000)return'💎';
+    if(val>=50000)return'🔥';
+    if(val>=25000)return'⭐';
+    return'🎯';
+  }
+
+  window._checkMilestones=function(totalFat){
+    const milestones=_buildMilestones();
+    const shown=_getShown();
+    const crossed=milestones.filter(m=>totalFat>=m&&!shown.has(m));
+    if(!crossed.length)return;
+    const highest=Math.max(...crossed);
+    crossed.forEach(m=>shown.add(m));
+    _saveShown(shown);
+    const fmt=v=>'R$ '+(v>=1000?(v/1000).toLocaleString('pt-BR',{minimumFractionDigits:0})+'k':v.toLocaleString('pt-BR'));
+    document.getElementById('ms-emoji').textContent=_emoji(highest);
+    document.getElementById('ms-val').textContent=fmt(highest);
+    document.getElementById('ms-msg').textContent=_milestone(highest);
+    const ov=document.getElementById('milestone-overlay');
+    ov.classList.add('show');
+    _spawnConfetti();
+  };
+  window.closeMilestone=function(){
+    document.getElementById('milestone-overlay').classList.remove('show');
+  };
+})();
+</script>
 
 </body>
 </html>
