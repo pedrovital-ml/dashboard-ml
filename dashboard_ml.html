@@ -4195,6 +4195,15 @@ auth.onAuthStateChanged(async user=>{
         Object.assign(imgCache,customImages);
         estoque=d.estoque||[];
         eid=Math.max(0,...estoque.map(e=>e.id||0))+1;
+        compras=d.compras||[];
+        // Migração: se compras vazio mas estoque tem entradas, gera histórico a partir do estoque
+        if(!compras.length&&estoque.length){
+          compras=estoque.map((e,i)=>({id:i+1,data:e.data||'2026-10-01',produto:e.produto||'',cor:e.cor||'',qtd:e.qtd||1,custo:e.custo||0,total:+((e.custo||0)*(e.qtd||1)).toFixed(2),status:e.status||'rota',fornecedor:''}));
+          cid=compras.length+1;
+          db.collection('users').doc(user.uid).collection('data').doc('main').set({sales,images:customImages,estoque,compras,adsGasto:adsGastoByMonth,adsReceita:adsReceitaByMonth}).catch(()=>{});
+        }else{
+          cid=Math.max(0,...compras.map(c=>c.id||0))+1;
+        }
         if(d.adsGasto){Object.assign(adsGastoByMonth,d.adsGasto);localStorage.setItem('ml_ads_v2',JSON.stringify(adsGastoByMonth));}
         if(d.adsReceita){Object.assign(adsReceitaByMonth,d.adsReceita);localStorage.setItem('ml_ads_receita_v1',JSON.stringify(adsReceitaByMonth));}
       }else{
