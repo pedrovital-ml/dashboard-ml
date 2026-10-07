@@ -5215,6 +5215,7 @@ async function mlCheckCallback(){
       localStorage.setItem('ml_token_expiry',Date.now()+d.expires_in*1000);
       localStorage.setItem('ml_user_id',d.user_id);
       mlUpdateBtn();
+      document.getElementById('ml-import-overlay').style.display='none';
       localStorage.removeItem('ml_last_sync');
       mlAutoSync(false);
     } else {
