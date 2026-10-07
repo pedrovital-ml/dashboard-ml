@@ -5196,6 +5196,7 @@ async function mlFetch(url){
   const token=localStorage.getItem('ml_access_token');
   if(!token)return null;
   const r=await fetch('/api/ml-token',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url,access_token:token})});
+  if(!r.ok){console.warn('[ML] fetch error',r.status,'url:',url);return null;}
   return r.json();
 }
 async function mlCheckCallback(){
@@ -5243,17 +5244,24 @@ async function mlAutoSync(silent=false){
   const lastDate=lastRaw?new Date(lastRaw):new Date(Date.now()-90*24*3600*1000);
   const fromStr=lastDate.toISOString().slice(0,19)+'.000-03:00';
   let allOrders=[];
+  let syncOk=false;
   try{
     let offset=0;
     while(true){
       const url=`https://api.mercadolibre.com/orders/search?seller=${userId}&order.status=paid&order.date_created.from=${encodeURIComponent(fromStr)}&sort=date_asc&limit=50&offset=${offset}`;
       const data=await mlFetch(url);
       if(!data||!data.results)break;
+      syncOk=true;
       allOrders=allOrders.concat(data.results);
       if(data.results.length<50||allOrders.length>=(data.paging?.total||0))break;
       offset+=50;if(offset>=500)break;
     }
   }catch(e){if(_syncBtn){_syncBtn.disabled=false;_syncBtn.textContent='Sincronizar ML';}return;}
+  if(!syncOk){
+    if(_syncBtn){_syncBtn.disabled=false;_syncBtn.textContent='Sincronizar ML';}
+    if(!silent)_showUndoToast('⚠️ Erro ao conectar com ML — tente reconectar');
+    return;
+  }
   localStorage.setItem('ml_last_sync',new Date().toISOString());
   const existingIds=new Set(sales.filter(s=>s.mlOrderId).map(s=>String(s.mlOrderId)));
   const newOrders=allOrders.filter(o=>!existingIds.has(String(o.id)));
