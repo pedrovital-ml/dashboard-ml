@@ -5281,7 +5281,7 @@ async function mlAutoSync(silent=false){
     }
     let frete=0;
     if(!isFull&&o.shipping&&o.shipping.id){
-      try{const ship=await mlFetch(`https://api.mercadolibre.com/shipments/${o.shipping.id}`);frete=+(ship?.base_cost||ship?.cost||0).toFixed(2);}
+      try{const ship=await mlFetch(`https://api.mercadolibre.com/shipments/${o.shipping.id}`);console.log('[SHIP]',o.shipping.id,JSON.stringify({base_cost:ship?.base_cost,cost:ship?.cost,cost_components:ship?.cost_components,receiver_address:undefined}));frete=+(ship?.base_cost||ship?.cost||0).toFixed(2);}
       catch(e){}
     }
     const match=_mlMatchProd(mlTitle);
