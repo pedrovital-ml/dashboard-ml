@@ -1970,7 +1970,8 @@ async function renderTable(){
         el.innerHTML=`<img src="${url}" alt="${nome}" onerror="this.parentNode.innerHTML='📦'" style="width:100%;height:100%;object-fit:cover;border-radius:7px">`+editBtn;
       } else {
         // fallback: use ML image if available for this specific sale
-        const mlImg=el.dataset.mlimage?decodeURIComponent(el.dataset.mlimage):'';
+        const mlImg=el.dataset.mlimage?decodeURIComponent(el.dataset.mlimage).replace(/^http:\/\//,'https://'):'';
+
         if(mlImg){
           el.innerHTML=`<img src="${mlImg}" alt="" onerror="this.parentNode.innerHTML='📦'" style="width:100%;height:100%;object-fit:cover;border-radius:7px">`+editBtn;
         } else {
@@ -5260,7 +5261,7 @@ async function mlAutoSync(silent=false){
     const preco=+(item.unit_price*qtd).toFixed(2);
     const taxa_pct=preco>0?+(item.sale_fee/preco*100).toFixed(2):13;
     const data_v=(o.date_created||brToday()).slice(0,10);
-    const isFull=!!(o.fulfillment||(o.shipping&&o.shipping.logistic_type==='fulfillment'));
+    const isFull=!!(o.fulfillment||(o.shipping&&o.shipping.logistic_type==='fulfillment')||(Array.isArray(o.tags)&&o.tags.includes('fulfillment')));
     let mlImage='',mlSku='';
     if(mlItemId){
       if(!_mlItemCache[mlItemId]){
@@ -5268,18 +5269,16 @@ async function mlAutoSync(silent=false){
         catch(e){_mlItemCache[mlItemId]={};}
       }
       const c=_mlItemCache[mlItemId];
-      mlImage=c.thumbnail||'';mlSku=c.seller_sku||item.item.seller_custom_field||'';
+      mlImage=(c.thumbnail||'').replace(/^http:\/\//,'https://');mlSku=c.seller_sku||item.item.seller_custom_field||'';
+    }
+    let frete=0;
+    if(!isFull&&o.shipping&&o.shipping.id){
+      try{const ship=await mlFetch(`https://api.mercadolibre.com/shipments/${o.shipping.id}`);frete=+(ship?.base_cost||ship?.cost||0).toFixed(2);}
+      catch(e){}
     }
     const match=_mlMatchProd(mlTitle);
     const prod=match?match.produto:mlTitle;
-    let custo=0;
-    if(match){
-      const entries=estoque.filter(e=>e.produto===match.produto&&(e.custo||0)>0);
-      const best=entries.find(e=>e.status===(isFull?'full':'estoque'))||entries[0];
-      if(best)custo=best.custo||0;
-    }
-    sales.push(calcSale({id:nid++,data:data_v,prod,cor:'',qtd,preco,custo,custos:[custo],frete:0,taxa:taxa_pct,desconto:0,ads:0,fullML:isFull,flex:false,mlOrderId:String(o.id),mlItemId,mlTitle,mlImage,mlSku}));
-    if(custo>0)_groupedDeduct(prod,Array(qtd).fill(custo));
+    sales.push(calcSale({id:nid++,data:data_v,prod,cor:'',qtd,preco,custo:0,custos:[0],frete,taxa:taxa_pct,desconto:0,ads:0,fullML:isFull,flex:false,mlOrderId:String(o.id),mlItemId,mlTitle,mlImage,mlSku}));
     added++;
   }
   saveLS();renderAll();
