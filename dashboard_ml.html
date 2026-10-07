@@ -5241,7 +5241,7 @@ async function mlAutoSync(silent=false){
   const _syncBtn=document.getElementById('ml-sync-btn');
   if(_syncBtn){_syncBtn.disabled=true;_syncBtn.textContent='Sincronizando…';}
   const lastRaw=localStorage.getItem('ml_last_sync');
-  const lastDate=lastRaw?new Date(lastRaw):new Date(Date.now()-200*24*3600*1000);
+  const lastDate=lastRaw?new Date(lastRaw):new Date('2026-02-01T00:00:00.000-03:00');
   const fromStr=lastDate.toISOString().slice(0,19)+'.000-03:00';
   let allOrders=[];
   let syncOk=false;
