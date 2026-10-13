@@ -4172,6 +4172,7 @@ function deleteEstGroup(ids){
 
 let _realtimeChannel=null;
 let _mlSyncInterval=null;
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&mlIsConnected())mlAutoSync(true);});
 function setupRealtimeSync(uid){
   if(_realtimeChannel){sb.removeChannel(_realtimeChannel);_realtimeChannel=null;}
   _realtimeChannel=sb.channel('user_data_'+uid)
@@ -4235,7 +4236,7 @@ sb.auth.onAuthStateChange(async(event,session)=>{
     renderAll();renderEstoque();
     setTimeout(()=>mlAutoSync(true),1500);
     if(_mlSyncInterval)clearInterval(_mlSyncInterval);
-    _mlSyncInterval=setInterval(()=>{if(mlIsConnected())mlAutoSync(true);},15*60*1000);
+    _mlSyncInterval=setInterval(()=>{if(mlIsConnected())mlAutoSync(true);},2*60*1000);
     if(typeof _showPendingMilestone==='function')_showPendingMilestone();
     const _savedPage=(()=>{try{return localStorage.getItem('activePage')||'dashboard';}catch(e){return'dashboard';}})();
     if(_savedPage!=='dashboard')showPage(_savedPage);
