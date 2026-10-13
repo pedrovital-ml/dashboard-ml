@@ -5358,17 +5358,20 @@ async function mlAutoSync(silent=false){
     const preco=+(item.unit_price*qtd).toFixed(2);
     const taxa_pct=preco>0?+(item.sale_fee/preco*100).toFixed(2):13;
     const data_v=(o.date_created||brToday()).slice(0,10);
-    const isFull=!!(o.fulfillment||(o.shipping&&o.shipping.logistic_type==='fulfillment')||(Array.isArray(o.tags)&&o.tags.includes('fulfillment')));
+    const _tags=Array.isArray(o.tags)?o.tags:[];
+    const _logistic=o.shipping?.logistic_type||'';
+    const isFull=!!(o.fulfillment||_logistic==='fulfillment'||_tags.some(t=>['fulfillment','meli_fulfillment','fulfillment_ml'].includes(t)));
+    const isFlex=!isFull&&!!(_logistic==='self_service'||_logistic==='flex'||_tags.some(t=>['flex','logistic_flex','mshops_flex'].includes(t)));
     const mlImage=((item.item.thumbnail||'')).replace(/^http:\/\//,'https://');
     const mlSku=item.item.seller_custom_field||'';
     let frete=0;
-    if(!isFull){
+    if(!isFull&&!isFlex){
       const sc=o.payments?.[0]?.shipping_cost;
       if(sc&&sc>0)frete=+Number(sc).toFixed(2);
     }
     const match=_mlMatchProd(mlTitle);
     const prod=match?match.produto:mlTitle;
-    sales.push(calcSale({id:nid++,data:data_v,prod,cor:'',qtd,preco,custo:0,custos:[0],frete,taxa:taxa_pct,desconto:0,ads:0,fullML:isFull,flex:false,mlOrderId:String(o.id),mlItemId,mlTitle,mlImage,mlSku}));
+    sales.push(calcSale({id:nid++,data:data_v,prod,cor:'',qtd,preco,custo:0,custos:[0],frete,taxa:taxa_pct,desconto:0,ads:0,fullML:isFull,flex:isFlex,mlOrderId:String(o.id),mlItemId,mlTitle,mlImage,mlSku}));
     added++;
   }
   saveLS();renderAll();
@@ -5382,22 +5385,26 @@ async function mlEnrichItemImages(){
   const missing=sales.filter(s=>s.mlItemId&&!s.mlImage);
   if(!missing.length)return;
   const uniqueIds=[...new Set(missing.map(s=>s.mlItemId))];
-  // Batch em grupos de 20 (limite da API)
+  console.log('[IMG] Enriquecendo',uniqueIds.length,'itens sem foto');
+  // Batch em grupos de 20
   for(let i=0;i<uniqueIds.length;i+=20){
     const chunk=uniqueIds.slice(i,i+20);
     try{
-      const data=await mlFetch(`https://api.mercadolibre.com/items?ids=${chunk.join(',')}&attributes=id,thumbnail,pictures`);
-      if(!data||!Array.isArray(data))continue;
+      // Sem &attributes para não alterar o formato da resposta batch
+      const data=await mlFetch(`https://api.mercadolibre.com/items?ids=${chunk.join(',')}`);
+      if(!data){console.warn('[IMG] Sem resposta do batch');continue;}
+      // Resposta pode ser array [{code,body}] ou objeto de erro
+      const items=Array.isArray(data)?data:[];
       let changed=false;
-      for(const res of data){
-        if(res.code!==200||!res.body)continue;
-        const item=res.body;
+      for(const res of items){
+        const item=res.code===200?res.body:res;
+        if(!item||!item.id)continue;
         const thumb=(item.pictures?.[0]?.secure_url||item.thumbnail||'').replace(/^http:\/\//,'https://');
         if(!thumb)continue;
         sales.filter(s=>s.mlItemId===item.id&&!s.mlImage).forEach(s=>{s.mlImage=thumb;changed=true;});
       }
       if(changed){saveLS();renderAll();}
-    }catch(e){/* silencioso */}
+    }catch(e){console.warn('[IMG] Erro no batch:',e);}
   }
 }
 
