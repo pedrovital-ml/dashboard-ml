@@ -1488,11 +1488,39 @@ function _showUndoToast(msg){
 }
 
 let _saveTimer=null;
-function saveLS(){
-  // Backup local imediato (proteção contra falha do Supabase)
+function _restoreFromLocalBackup(){
   try{
-    if(estoque.length>0)localStorage.setItem('erp_estoque_bk',JSON.stringify(estoque));
+    const bkSales=localStorage.getItem('erp_sales_bk');
+    const bkEst=localStorage.getItem('erp_estoque_bk');
+    const bkComp=localStorage.getItem('erp_compras_bk');
+    const bkImg=localStorage.getItem('erp_images_bk');
+    const bkEstImg=localStorage.getItem('erp_estoque_images_bk');
+    const bkAdsG=localStorage.getItem('erp_ads_gasto_bk');
+    const bkAdsR=localStorage.getItem('erp_ads_receita_bk');
+    if(bkSales){sales=JSON.parse(bkSales).map(s=>calcSale(s));nid=Math.max(0,...sales.map(s=>s.id||0))+1;}
+    if(bkEst){estoque=JSON.parse(bkEst);eid=Math.max(0,...estoque.map(e=>e.id||0))+1;}
+    if(bkComp){compras=JSON.parse(bkComp);cid=Math.max(0,...compras.map(c=>c.id||0))+1;}
+    if(bkImg)Object.assign(customImages,JSON.parse(bkImg));
+    if(bkEstImg)Object.assign(estoqueImages,JSON.parse(bkEstImg));
+    if(bkAdsG)Object.assign(adsGastoByMonth,JSON.parse(bkAdsG));
+    if(bkAdsR)Object.assign(adsReceitaByMonth,JSON.parse(bkAdsR));
+    if(sales.length||estoque.length){
+      console.log('[ERP] Dados recuperados do backup local');
+      saveLS();
+    }
+  }catch(e){console.error('[ERP] Falha ao restaurar backup local:',e);}
+}
+
+function saveLS(){
+  // Backup local completo (proteção contra falha do Supabase)
+  try{
     if(sales.length>0)localStorage.setItem('erp_sales_bk',JSON.stringify(sales));
+    if(estoque.length>0)localStorage.setItem('erp_estoque_bk',JSON.stringify(estoque));
+    if(compras.length>0)localStorage.setItem('erp_compras_bk',JSON.stringify(compras));
+    if(Object.keys(customImages).length>0)localStorage.setItem('erp_images_bk',JSON.stringify(customImages));
+    if(Object.keys(estoqueImages).length>0)localStorage.setItem('erp_estoque_images_bk',JSON.stringify(estoqueImages));
+    if(Object.keys(adsGastoByMonth).length>0)localStorage.setItem('erp_ads_gasto_bk',JSON.stringify(adsGastoByMonth));
+    if(Object.keys(adsReceitaByMonth).length>0)localStorage.setItem('erp_ads_receita_bk',JSON.stringify(adsReceitaByMonth));
   }catch(e){}
   clearTimeout(_saveTimer);
   _saveTimer=setTimeout(async()=>{
@@ -4324,24 +4352,13 @@ sb.auth.onAuthStateChange(async(event,session)=>{
         if(d.estoque_images){Object.assign(estoqueImages,d.estoque_images);_standardizeEstoquePhotos();}
         if(d.config&&d.config.anthropicKey)anthropicKey=d.config.anthropicKey;
       }else{
-        // Sem dados no Supabase — tenta recuperar backup local
-        try{
-          const bkEst=localStorage.getItem('erp_estoque_bk');
-          const bkSales=localStorage.getItem('erp_sales_bk');
-          if(bkEst)estoque=JSON.parse(bkEst);
-          if(bkSales){sales=JSON.parse(bkSales).map(s=>calcSale(s));nid=Math.max(0,...sales.map(s=>s.id||0))+1;}
-          if(estoque.length||sales.length){console.log('[ERP] Dados recuperados do backup local');saveLS();}
-        }catch(e2){}
+        // Sem dados no Supabase — tenta recuperar backup local completo
+        _restoreFromLocalBackup();
         if(!sales.length)nid=1;
       }
     }catch(e){
-      // Erro no Supabase — tenta backup local
-      try{
-        const bkEst=localStorage.getItem('erp_estoque_bk');
-        const bkSales=localStorage.getItem('erp_sales_bk');
-        if(bkEst)estoque=JSON.parse(bkEst);
-        if(bkSales){sales=JSON.parse(bkSales).map(s=>calcSale(s));nid=Math.max(0,...sales.map(s=>s.id||0))+1;}
-      }catch(e2){}
+      // Erro no Supabase — tenta backup local completo
+      _restoreFromLocalBackup();
       if(!sales.length)nid=1;
     }
     if(sales.length===0)localStorage.removeItem('ml_last_sync');
