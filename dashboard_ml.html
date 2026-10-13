@@ -4365,6 +4365,7 @@ sb.auth.onAuthStateChange(async(event,session)=>{
     setupRealtimeSync(user.id);
     renderAll();renderEstoque();
     setTimeout(()=>mlAutoSync(true),1500);
+    setTimeout(()=>mlEnrichItemImages(),3000);
     if(_mlSyncInterval)clearInterval(_mlSyncInterval);
     _mlSyncInterval=setInterval(()=>{if(mlIsConnected())mlAutoSync(true);},2*60*1000);
     if(typeof _showPendingMilestone==='function')_showPendingMilestone();
@@ -5346,7 +5347,7 @@ async function mlAutoSync(silent=false){
   const existingIds=new Set(sales.filter(s=>s.mlOrderId).map(s=>String(s.mlOrderId)));
   const newOrders=allOrders.filter(o=>!existingIds.has(String(o.id)));
   if(_syncBtn){_syncBtn.disabled=false;_syncBtn.textContent='Sincronizar ML';}
-  if(!newOrders.length){if(!silent)_showUndoToast('✅ Tudo sincronizado — nenhuma venda nova');return;}
+  if(!newOrders.length){if(!silent)_showUndoToast('✅ Tudo sincronizado — nenhuma venda nova');mlEnrichItemImages();return;}
   _pushUndo();
   let added=0;
   for(const o of newOrders){
