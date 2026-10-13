@@ -5380,20 +5380,19 @@ async function mlAutoSync(silent=false){
   mlSyncAds();
 }
 
+const _imgTriedIds=new Set();
 async function mlEnrichItemImages(){
-  if(!mlIsConnected())return;
-  const missing=sales.filter(s=>s.mlItemId&&!s.mlImage);
+  const missing=sales.filter(s=>s.mlItemId&&!s.mlImage&&!_imgTriedIds.has(s.mlItemId));
   if(!missing.length)return;
   const uniqueIds=[...new Set(missing.map(s=>s.mlItemId))];
-  console.log('[IMG] Enriquecendo',uniqueIds.length,'itens sem foto');
-  // Batch em grupos de 20
+  // API de items é pública — fetch direto sem token evita 403
   for(let i=0;i<uniqueIds.length;i+=20){
     const chunk=uniqueIds.slice(i,i+20);
+    chunk.forEach(id=>_imgTriedIds.add(id));
     try{
-      // Sem &attributes para não alterar o formato da resposta batch
-      const data=await mlFetch(`https://api.mercadolibre.com/items?ids=${chunk.join(',')}`);
-      if(!data){console.warn('[IMG] Sem resposta do batch');continue;}
-      // Resposta pode ser array [{code,body}] ou objeto de erro
+      const r=await fetch(`https://api.mercadolibre.com/items?ids=${chunk.join(',')}`);
+      if(!r.ok)continue;
+      const data=await r.json();
       const items=Array.isArray(data)?data:[];
       let changed=false;
       for(const res of items){
@@ -5404,7 +5403,7 @@ async function mlEnrichItemImages(){
         sales.filter(s=>s.mlItemId===item.id&&!s.mlImage).forEach(s=>{s.mlImage=thumb;changed=true;});
       }
       if(changed){saveLS();renderAll();}
-    }catch(e){console.warn('[IMG] Erro no batch:',e);}
+    }catch(e){}
   }
 }
 
