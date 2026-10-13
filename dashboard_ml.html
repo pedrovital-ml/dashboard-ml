@@ -1969,12 +1969,7 @@ async function renderTable(){
     const titulo=s.prod+(s.cor?' — '+s.cor:'');
     const mc=s.margem>=26?'gh':s.margem>=20?'g':s.margem>=0?'y':'r';
     const lc=s.lucro>=0?'var(--green)':'var(--red)';
-    const _chBadge=s.fullML
-      ?`<span class="badge-full" onclick="event.stopPropagation();cycleChannel(${s.id})" title="Full ML → clique para Flex" style="flex-shrink:0"><svg viewBox="0 0 24 24" fill="currentColor" style="width:9px;height:9px"><polygon points="13,2 4,14 11,14 11,22 20,10 13,10"/></svg>FULL</span>`
-      :s.flex
-      ?`<span class="badge-flex" onclick="event.stopPropagation();cycleChannel(${s.id})" title="Flex → clique para Agência" style="flex-shrink:0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:9px;height:9px"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 5v4h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>FLEX</span>`
-      :`<span class="badge-ag" onclick="event.stopPropagation();cycleChannel(${s.id})" title="Agência → clique para Full ML" style="flex-shrink:0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:9px;height:9px"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 5v4h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>AG</span>`;
-    const fullBadge=_chBadge;const flexBadge='';
+    const fullBadge='';const flexBadge='';
     return`<tr>
       <td><div class="prod-img-wrap" id="img-${s.id}" data-nome="${encodeURIComponent(s.prod)}" data-cor="${encodeURIComponent(s.cor||'')}" data-mlimage="${encodeURIComponent(s.mlImage||'')}"><div class="loader"><div class="spinner"></div></div></div></td>
       <td title="${titulo}${s.mlItemId?' | '+s.mlItemId:''}" style="text-transform:uppercase;color:var(--txt);font-weight:600;max-width:0"><div style="display:flex;align-items:center;gap:5px;min-width:0"><div style="min-width:0;flex:1"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block">${titulo}</span>${s.mlSku?`<span style="font-size:10px;color:var(--txt3);font-weight:500;text-transform:none;letter-spacing:.03em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block">SKU: ${s.mlSku}</span>`:s.mlItemId?`<span style="font-size:10px;color:var(--txt3);font-weight:400;text-transform:none;letter-spacing:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block">${s.mlItemId}</span>`:''}</div>${fullBadge}${flexBadge}</div></td>
@@ -5241,7 +5236,7 @@ function mlUpdateBtn(){
   }
 }
 function mlConnect(){
-  const url=`https://auth.mercadolivre.com.br/authorization?response_type=code&client_id=${ML_CLIENT_ID}&redirect_uri=${encodeURIComponent(ML_REDIRECT)}&scope=offline_access+read_product_ads`;
+  const url=`https://auth.mercadolivre.com.br/authorization?response_type=code&client_id=${ML_CLIENT_ID}&redirect_uri=${encodeURIComponent(ML_REDIRECT)}&scope=offline_access+read_listings+read_product_ads`;
   window.location.href=url;
 }
 function mlDisconnect(){
@@ -5390,9 +5385,8 @@ async function mlEnrichItemImages(){
     const chunk=uniqueIds.slice(i,i+20);
     chunk.forEach(id=>_imgTriedIds.add(id));
     try{
-      const r=await fetch(`https://api.mercadolibre.com/items?ids=${chunk.join(',')}`);
-      if(!r.ok)continue;
-      const data=await r.json();
+      const data=await mlFetch(`https://api.mercadolibre.com/items?ids=${chunk.join(',')}`);
+      if(!data)continue;
       const items=Array.isArray(data)?data:[];
       let changed=false;
       for(const res of items){
