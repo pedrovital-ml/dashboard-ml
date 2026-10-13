@@ -9,9 +9,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -1387,17 +1385,8 @@ function mgColorBg(mg){return mg>=26?'var(--greenhibg)':mg>=20?'var(--greenbg)':
 function brlK(v){const s=v<0?'-':'';const a=Math.abs(v);if(a>=1000000)return s+'R$'+(a/1000000).toLocaleString('pt-BR',{maximumFractionDigits:1})+'M';if(a>=1000)return s+'R$'+(a/1000).toLocaleString('pt-BR',{maximumFractionDigits:a%1000===0?0:1})+'k';if(a===0)return'R$0';return s+'R$'+a.toLocaleString('pt-BR',{maximumFractionDigits:0});}
 function set(id,v){const e=document.getElementById(id);if(e)e.textContent=v;}
 
-/* ── FIREBASE ── */
-firebase.initializeApp({
-  apiKey:"AIzaSyB1VKl8dnckOGkCrFvoezPSWG8S-bhDLRU",
-  authDomain:"dashboard-ml-pv.firebaseapp.com",
-  projectId:"dashboard-ml-pv",
-  storageBucket:"dashboard-ml-pv.firebasestorage.app",
-  messagingSenderId:"827755956944",
-  appId:"1:827755956944:web:3b44dd2c15bef589a2acd5"
-});
-const auth=firebase.auth();
-const db=firebase.firestore();
+/* ── SUPABASE ── */
+const sb=supabase.createClient('https://jxbuxphhinvhgmekxuja.supabase.co','sb_publishable_Gzk6xuXnrx0bwB4mtt1dFQ_7NhLKjov');
 
 /* ── STATE ── */
 let sales=[];
@@ -1473,11 +1462,15 @@ let _saveTimer=null;
 function saveLS(){
   clearTimeout(_saveTimer);
   _saveTimer=setTimeout(async()=>{
-    const user=auth.currentUser;
+    const {data:{user}}=await sb.auth.getUser();
     if(!user)return;
     try{
-      await db.collection('users').doc(user.uid).collection('data').doc('main').set({sales,images:customImages,estoque,compras,adsGasto:adsGastoByMonth,adsReceita:adsReceitaByMonth});
-      await db.collection('users').doc(user.uid).collection('data').doc('estoqueImages').set(estoqueImages);
+      await sb.from('user_data').upsert({
+        user_id:user.id,sales,estoque,compras,
+        images:customImages,estoque_images:estoqueImages,
+        ads_gasto:adsGastoByMonth,ads_receita:adsReceitaByMonth,
+        updated_at:new Date().toISOString()
+      },{onConflict:'user_id'});
     }catch(e){console.error('Erro ao salvar:',e);}
   },600);
 }
@@ -4177,117 +4170,68 @@ function deleteEstGroup(ids){
   saveLS();renderEstoque();
 }
 
-let _unsyncMain=null,_unsyncEstImg=null;
+let _realtimeChannel=null;
 function setupRealtimeSync(uid){
-  if(_unsyncMain)_unsyncMain();
-  if(_unsyncEstImg)_unsyncEstImg();
-
-  _unsyncMain=db.collection('users').doc(uid).collection('data').doc('main')
-    .onSnapshot(snap=>{
-      if(!snap.exists||snap.metadata.hasPendingWrites)return;
-      const d=snap.data();
+  if(_realtimeChannel){sb.removeChannel(_realtimeChannel);_realtimeChannel=null;}
+  _realtimeChannel=sb.channel('user_data_'+uid)
+    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'user_data',filter:`user_id=eq.${uid}`},payload=>{
+      const d=payload.new;if(!d)return;
       const newSales=(d.sales||[]).map(s=>calcSale(s));
       const newEst=d.estoque||[];
       const newCompras=d.compras||[];
       const salesChanged=JSON.stringify(newSales)!==JSON.stringify(sales);
       const estChanged=JSON.stringify(newEst)!==JSON.stringify(estoque);
       if(!salesChanged&&!estChanged)return;
-      sales=newSales;
-      nid=Math.max(1,...sales.map(s=>s.id||0))+1;
+      sales=newSales;nid=Math.max(1,...sales.map(s=>s.id||0))+1;
       const newImgs=d.images||{};
       Object.keys(customImages).forEach(k=>delete customImages[k]);
-      Object.assign(customImages,newImgs);
-      Object.assign(imgCache,customImages);
-      estoque=newEst;
-      eid=Math.max(1,...estoque.map(e=>e.id||0))+1;
-      compras=newCompras;
-      cid=Math.max(1,...compras.map(c=>c.id||0))+1;
-      if(d.adsGasto){Object.keys(adsGastoByMonth).forEach(k=>delete adsGastoByMonth[k]);Object.assign(adsGastoByMonth,d.adsGasto);localStorage.setItem('ml_ads_v2',JSON.stringify(adsGastoByMonth));}
-      if(d.adsReceita){Object.keys(adsReceitaByMonth).forEach(k=>delete adsReceitaByMonth[k]);Object.assign(adsReceitaByMonth,d.adsReceita);localStorage.setItem('ml_ads_receita_v1',JSON.stringify(adsReceitaByMonth));}
-      _standardizeEstoquePhotos();
-      renderAll();
-      renderEstoque();
+      Object.assign(customImages,newImgs);Object.assign(imgCache,customImages);
+      estoque=newEst;eid=Math.max(1,...estoque.map(e=>e.id||0))+1;
+      compras=newCompras;cid=Math.max(1,...compras.map(c=>c.id||0))+1;
+      if(d.ads_gasto){Object.keys(adsGastoByMonth).forEach(k=>delete adsGastoByMonth[k]);Object.assign(adsGastoByMonth,d.ads_gasto);localStorage.setItem('ml_ads_v2',JSON.stringify(adsGastoByMonth));}
+      if(d.ads_receita){Object.keys(adsReceitaByMonth).forEach(k=>delete adsReceitaByMonth[k]);Object.assign(adsReceitaByMonth,d.ads_receita);localStorage.setItem('ml_ads_receita_v1',JSON.stringify(adsReceitaByMonth));}
+      if(d.estoque_images){const ei=d.estoque_images||{};Object.keys(estoqueImages).forEach(k=>delete estoqueImages[k]);Object.assign(estoqueImages,ei);}
+      _standardizeEstoquePhotos();renderAll();renderEstoque();
       _showUndoToast('🔄 Dados atualizados de outro dispositivo');
-    });
-
-  _unsyncEstImg=db.collection('users').doc(uid).collection('data').doc('estoqueImages')
-    .onSnapshot(snap=>{
-      if(!snap.exists||snap.metadata.hasPendingWrites)return;
-      const newImgs=snap.data();
-      const changed=JSON.stringify(newImgs)!==JSON.stringify(estoqueImages);
-      if(!changed)return;
-      Object.keys(estoqueImages).forEach(k=>delete estoqueImages[k]);
-      Object.assign(estoqueImages,newImgs);
-      _standardizeEstoquePhotos();
-      renderEstoque();
-    });
+    })
+    .subscribe();
 }
 
-auth.onAuthStateChanged(async user=>{
+sb.auth.onAuthStateChange(async(event,session)=>{
+  const user=session?.user;
   const overlay=document.getElementById('login-overlay');
   if(user){
     overlay.style.display='none';
     try{
-      const snap=await db.collection('users').doc(user.uid).collection('data').doc('main').get();
-      if(snap.exists){
-        const d=snap.data();
+      const {data:d}=await sb.from('user_data').select('*').eq('user_id',user.id).single();
+      if(d){
         sales=(d.sales||[]).map(s=>calcSale(s));
         nid=Math.max(0,...sales.map(s=>s.id||0))+1;
         Object.assign(customImages,d.images||{});
         Object.assign(imgCache,customImages);
         estoque=d.estoque||[];
-        // Corrige entradas com id undefined/null
         let _eidFix=Math.max(0,...estoque.map(e=>e.id||0))+1;
         let _needsIdFix=false;
         estoque=estoque.map(e=>{if(!e.id){_needsIdFix=true;return{...e,id:_eidFix++};}return e;});
-        if(_needsIdFix)db.collection('users').doc(user.uid).collection('data').doc('main').set({sales,images:customImages,estoque,compras,adsGasto:adsGastoByMonth,adsReceita:adsReceitaByMonth}).catch(()=>{});
+        if(_needsIdFix)saveLS();
         eid=Math.max(0,...estoque.map(e=>e.id||0))+1;
         compras=d.compras||[];
-        // Migração: se compras vazio mas estoque tem entradas, gera histórico a partir do estoque
         if(!compras.length&&estoque.length){
           compras=estoque.map((e,i)=>({id:i+1,data:e.data||'2026-10-01',produto:e.produto||'',cor:e.cor||'',qtd:e.qtd||1,custo:e.custo||0,total:+((e.custo||0)*(e.qtd||1)).toFixed(2),status:e.status||'rota',fornecedor:''}));
-          cid=compras.length+1;
-          db.collection('users').doc(user.uid).collection('data').doc('main').set({sales,images:customImages,estoque,compras,adsGasto:adsGastoByMonth,adsReceita:adsReceitaByMonth}).catch(()=>{});
-        }else{
-          cid=Math.max(0,...compras.map(c=>c.id||0))+1;
-        }
-        // Cleanup temporário: remove CELULAR LG B220 2 do estoque
+          cid=compras.length+1;saveLS();
+        }else{cid=Math.max(0,...compras.map(c=>c.id||0))+1;}
         const _beforeClean=estoque.length;
         estoque=estoque.filter(e=>!(e.produto||'').toUpperCase().includes('CELULAR LG B220'));
-        if(estoque.length!==_beforeClean)db.collection('users').doc(user.uid).collection('data').doc('main').set({sales,images:customImages,estoque,compras,adsGasto:adsGastoByMonth,adsReceita:adsReceitaByMonth}).catch(()=>{});
-        // Migração: define Aliexpress como fornecedor padrão para entradas sem fornecedor
-        if(estoque.some(e=>!e.fornecedor)){
-          estoque=estoque.map(e=>({...e,fornecedor:e.fornecedor||'Aliexpress'}));
-          db.collection('users').doc(user.uid).collection('data').doc('main').set({sales,images:customImages,estoque,compras,adsGasto:adsGastoByMonth,adsReceita:adsReceitaByMonth}).catch(()=>{});
-        }
-        if(d.adsGasto){Object.assign(adsGastoByMonth,d.adsGasto);localStorage.setItem('ml_ads_v2',JSON.stringify(adsGastoByMonth));}
-        if(d.adsReceita){Object.assign(adsReceitaByMonth,d.adsReceita);localStorage.setItem('ml_ads_receita_v1',JSON.stringify(adsReceitaByMonth));}
-      }else{
-        // Firebase vazio — verifica se há dados locais para migrar
-        const localSales=localStorage.getItem('mldb_v4');
-        const localImgs=localStorage.getItem('mlimg_v1');
-        if(localSales){
-          const parsed=JSON.parse(localSales);
-          if(parsed&&parsed.length>0){
-            if(confirm(`Encontramos ${parsed.length} vendas salvas localmente. Deseja migrar para a nuvem agora?`)){
-              sales=parsed.map(s=>calcSale(s));
-              nid=Math.max(0,...sales.map(s=>s.id||0))+1;
-              if(localImgs)Object.assign(customImages,JSON.parse(localImgs));
-              Object.assign(imgCache,customImages);
-              await db.collection('users').doc(user.uid).collection('data').doc('main').set({sales,images:customImages,estoque,compras,adsGasto:adsGastoByMonth,adsReceita:adsReceitaByMonth});
-            }else{sales=[];nid=1;}
-          }else{sales=[];nid=1;}
-        }else{sales=[];nid=1;}
-      }
+        if(estoque.length!==_beforeClean)saveLS();
+        if(estoque.some(e=>!e.fornecedor)){estoque=estoque.map(e=>({...e,fornecedor:e.fornecedor||'Aliexpress'}));saveLS();}
+        if(d.ads_gasto){Object.assign(adsGastoByMonth,d.ads_gasto);localStorage.setItem('ml_ads_v2',JSON.stringify(adsGastoByMonth));}
+        if(d.ads_receita){Object.assign(adsReceitaByMonth,d.ads_receita);localStorage.setItem('ml_ads_receita_v1',JSON.stringify(adsReceitaByMonth));}
+        if(d.estoque_images){Object.assign(estoqueImages,d.estoque_images);_standardizeEstoquePhotos();}
+        if(d.config&&d.config.anthropicKey)anthropicKey=d.config.anthropicKey;
+      }else{sales=[];nid=1;}
     }catch(e){sales=[];nid=1;}
-    setupRealtimeSync(user.uid);
-    db.collection('users').doc(user.uid).collection('data').doc('config').get()
-      .then(s=>{if(s.exists&&s.data().anthropicKey)anthropicKey=s.data().anthropicKey;})
-      .catch(()=>{});
-    db.collection('users').doc(user.uid).collection('data').doc('estoqueImages').get()
-      .then(s=>{if(s.exists)Object.assign(estoqueImages,s.data());_standardizeEstoquePhotos();renderEstoque();})
-      .catch(()=>{});
-    renderAll();
+    setupRealtimeSync(user.id);
+    renderAll();renderEstoque();
     setTimeout(()=>mlAutoSync(true),1500);
     if(typeof _showPendingMilestone==='function')_showPendingMilestone();
     const _savedPage=(()=>{try{return localStorage.getItem('activePage')||'dashboard';}catch(e){return'dashboard';}})();
@@ -4304,16 +4248,15 @@ async function doLogin(){
   const btn=document.getElementById('login-btn');
   err.textContent='';
   btn.textContent='Entrando...';btn.disabled=true;
-  try{
-    await auth.signInWithEmailAndPassword(email,pass);
-  }catch(e){
+  const {error}=await sb.auth.signInWithPassword({email,password:pass});
+  if(error){
     err.textContent='E-mail ou senha incorretos.';
     btn.textContent='Entrar';btn.disabled=false;
   }
 }
 
 function doLogout(){
-  if(confirm('Sair da conta?'))auth.signOut();
+  if(confirm('Sair da conta?'))sb.auth.signOut();
 }
 
 /* ── GLOBAL TOOLTIP ── */
@@ -4881,9 +4824,9 @@ async function saveApiKey(){
   const k=document.getElementById('apikey-inp').value.trim();
   if(!k){alert('Informe a chave.');return;}
   anthropicKey=k;
-  const user=auth.currentUser;
+  const {data:{user}}=await sb.auth.getUser();
   if(user){
-    try{await db.collection('users').doc(user.uid).collection('data').doc('config').set({anthropicKey:k});}
+    try{await sb.from('user_data').upsert({user_id:user.id,config:{anthropicKey:k}},{onConflict:'user_id'});}
     catch(e){}
   }
   closeApikeyModal();
