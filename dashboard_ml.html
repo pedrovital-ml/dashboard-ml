@@ -645,6 +645,10 @@ thead tr{background:linear-gradient(90deg,rgba(68,153,255,.04),rgba(160,112,255,
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
     <div class="sb-tip">Estoque</div>
   </div>
+  <div class="sb-item" id="sb-ads" onclick="showPage('ads')" title="Publicidade" style="cursor:pointer">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+    <div class="sb-tip">Publicidade</div>
+  </div>
   <div class="sb-spacer"></div>
   <div class="sb-item" title="Suporte">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
@@ -986,6 +990,31 @@ thead tr{background:linear-gradient(90deg,rgba(68,153,255,.04),rgba(160,112,255,
       <button class="nv-btn cancel" onclick="closeSellQtyModal()">Cancelar</button>
       <button class="nv-btn save" onclick="confirmSellQtyById()">✓ Confirmar</button>
     </div>
+  </div>
+</div>
+
+<!-- PAGE ADS -->
+<div id="page-ads" style="display:none;flex-direction:column;flex:1;min-width:0;overflow-y:auto;padding:24px 28px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px">
+    <div>
+      <div style="font-size:20px;font-weight:800;color:var(--txt)">Publicidade</div>
+      <div style="font-size:12px;color:var(--txt3);margin-top:2px">Dados de ADS do Mercado Livre</div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button onclick="mlSyncAds()" style="padding:8px 14px;border-radius:8px;background:rgba(0,200,122,.12);border:1px solid rgba(0,200,122,.35);cursor:pointer;font-size:12px;font-weight:700;color:var(--green)">↻ Atualizar ADS</button>
+      <button onclick="showPage('ads');openAdsManualModal()" style="padding:8px 14px;border-radius:8px;background:var(--bg3);border:1px solid var(--border2);cursor:pointer;font-size:12px;font-weight:700;color:var(--txt2)">+ Registrar manual</button>
+    </div>
+  </div>
+  <div id="ads-tab-content" style="background:var(--bg2);border:1px solid var(--border1);border-radius:14px;padding:20px;min-height:200px">
+    <div style="padding:40px;text-align:center;color:var(--txt3)">
+      <div style="font-size:28px;margin-bottom:10px">📡</div>
+      <div>Conecte o ML para carregar dados de publicidade</div>
+    </div>
+  </div>
+  <!-- Manual ADS por mês -->
+  <div style="margin-top:20px;background:var(--bg2);border:1px solid var(--border1);border-radius:14px;padding:20px">
+    <div style="font-size:13px;font-weight:700;color:var(--txt);margin-bottom:14px">Registros Manuais de ADS por Mês</div>
+    <div id="ads-manual-list" style="font-size:13px"></div>
   </div>
 </div>
 
@@ -2798,12 +2827,22 @@ function showPage(name){
   document.getElementById('page-dashboard').style.display=name==='dashboard'?'flex':'none';
   document.getElementById('page-stats').style.display=name==='stats'?'flex':'none';
   document.getElementById('page-estoque').style.display=name==='estoque'?'flex':'none';
+  document.getElementById('page-ads').style.display=name==='ads'?'flex':'none';
   document.getElementById('sb-dashboard').classList.toggle('active',name==='dashboard');
   document.getElementById('sb-stats').classList.toggle('active',name==='stats');
   document.getElementById('sb-estoque').classList.toggle('active',name==='estoque');
+  document.getElementById('sb-ads').classList.toggle('active',name==='ads');
   try{localStorage.setItem('activePage',name);}catch(e){}
   if(name==='stats')renderStats();
   if(name==='estoque')renderEstoque();
+  if(name==='ads'){renderAdsManualList();if(_mlAdsData)renderAdsTab({data:_mlAdsData});}
+}
+function openAdsManualModal(){document.getElementById('ads-overlay').style.display='flex';}
+function renderAdsManualList(){
+  const el=document.getElementById('ads-manual-list');if(!el)return;
+  const months=Object.keys(adsGastoByMonth).sort().reverse();
+  if(!months.length){el.innerHTML='<div style="color:var(--txt3);font-size:12px">Nenhum registro manual ainda.</div>';return;}
+  el.innerHTML=`<table style="width:100%;border-collapse:collapse"><thead><tr style="color:var(--txt3);font-size:11px;text-transform:uppercase"><th style="text-align:left;padding:6px 8px;border-bottom:1px solid var(--border1)">Mês</th><th style="text-align:right;padding:6px 8px;border-bottom:1px solid var(--border1)">Gasto</th><th style="text-align:right;padding:6px 8px;border-bottom:1px solid var(--border1)">Receita atribuída</th></tr></thead><tbody>${months.map(m=>`<tr style="border-bottom:1px solid var(--border1)"><td style="padding:8px;color:var(--txt2)">${m}</td><td style="text-align:right;padding:8px;font-family:var(--mono);color:var(--yellow)">${brl(adsGastoByMonth[m]||0)}</td><td style="text-align:right;padding:8px;font-family:var(--mono);color:var(--green)">${brl(adsReceitaByMonth[m]||0)}</td></tr>`).join('')}</tbody></table>`;
 }
 
 /* ── STATS RENDERING ── */
@@ -5111,7 +5150,7 @@ function mlUpdateBtn(){
   }
 }
 function mlConnect(){
-  const url=`https://auth.mercadolivre.com.br/authorization?response_type=code&client_id=${ML_CLIENT_ID}&redirect_uri=${encodeURIComponent(ML_REDIRECT)}`;
+  const url=`https://auth.mercadolivre.com.br/authorization?response_type=code&client_id=${ML_CLIENT_ID}&redirect_uri=${encodeURIComponent(ML_REDIRECT)}&scope=offline_access+read_product_ads`;
   window.location.href=url;
 }
 function mlDisconnect(){
@@ -5243,6 +5282,91 @@ async function mlAutoSync(silent=false){
   }
   saveLS();renderAll();
   if(added>0)_showUndoToast(`🔄 ${added} nova${added!==1?'s':''} venda${added!==1?'s':''} sincronizada${added!==1?'s':''} do ML`);
+  mlSyncAds();
+}
+
+async function mlSyncAds(){
+  if(!mlIsConnected())return;
+  const userId=localStorage.getItem('ml_user_id');
+  if(!userId)return;
+  try{
+    // Tentar API de Product Ads (nova)
+    const advertiser=await mlFetch(`https://api.mercadolibre.com/advertising/advertisers/${userId}`);
+    if(!advertiser||advertiser.error){
+      console.warn('[ADS] Conta sem acesso à API de publicidade:',advertiser?.error||'sem resposta');
+      renderAdsTab({noAccess:true});return;
+    }
+    const today=new Date();
+    const from=new Date(today.getFullYear(),today.getMonth(),1).toISOString().slice(0,10);
+    const to=today.toISOString().slice(0,10);
+    const report=await mlFetch(`https://api.mercadolibre.com/advertising/advertisers/${userId}/product_ads/reports?date_from=${from}&date_to=${to}&group_by=date`);
+    if(report&&!report.error){
+      _mlAdsData=report;
+      localStorage.setItem('ml_ads_api_data',JSON.stringify({data:report,updated:new Date().toISOString()}));
+      renderAdsTab({data:report});
+    } else {
+      // Tentar endpoint alternativo
+      const rep2=await mlFetch(`https://api.mercadolibre.com/product_ads/reports?seller_id=${userId}&date_from=${from}&date_to=${to}`);
+      if(rep2&&!rep2.error){
+        _mlAdsData=rep2;
+        localStorage.setItem('ml_ads_api_data',JSON.stringify({data:rep2,updated:new Date().toISOString()}));
+        renderAdsTab({data:rep2});
+      } else {
+        console.warn('[ADS] Endpoints retornaram erro:',report?.error,rep2?.error);
+        renderAdsTab({noAccess:true,error:report?.message||rep2?.message});
+      }
+    }
+  }catch(e){console.error('[ADS] Erro:',e);renderAdsTab({noAccess:true});}
+}
+
+let _mlAdsData=null;
+
+function renderAdsTab(result){
+  const el=document.getElementById('ads-tab-content');
+  if(!el)return;
+  if(result.noAccess){
+    el.innerHTML=`<div style="padding:32px;text-align:center;color:var(--txt3)">
+      <div style="font-size:32px;margin-bottom:12px">📡</div>
+      <div style="font-weight:700;color:var(--txt);margin-bottom:8px">API de Publicidade indisponível</div>
+      <div style="font-size:13px;margin-bottom:16px">${result.error||'Sua conta não tem acesso à API de ADS do ML ou o escopo não foi autorizado.'}</div>
+      <button onclick="mlDisconnect();mlConnect()" style="padding:8px 16px;border-radius:8px;background:var(--yellow);border:none;cursor:pointer;font-weight:700;font-size:13px;color:#333">🔄 Reconectar ML com permissão de ADS</button>
+      <div style="margin-top:24px;font-size:12px;color:var(--txt3)">Enquanto isso, use o registro manual de ADS abaixo</div>
+    </div>`;
+    return;
+  }
+  const rows=Array.isArray(result.data)?result.data:result.data?.results||[];
+  const totalGasto=rows.reduce((s,r)=>s+(r.cost||r.total_amount||r.spend||0),0);
+  const totalCliques=rows.reduce((s,r)=>s+(r.clicks||0),0);
+  const totalImpress=rows.reduce((s,r)=>s+(r.impressions||0),0);
+  el.innerHTML=`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px">
+    <div style="background:var(--bg2);border:1px solid var(--border1);border-radius:12px;padding:16px">
+      <div style="font-size:11px;color:var(--txt3);font-weight:600;text-transform:uppercase;margin-bottom:4px">Gasto este mês</div>
+      <div style="font-size:22px;font-weight:800;color:var(--yellow)">${brl(totalGasto)}</div>
+    </div>
+    <div style="background:var(--bg2);border:1px solid var(--border1);border-radius:12px;padding:16px">
+      <div style="font-size:11px;color:var(--txt3);font-weight:600;text-transform:uppercase;margin-bottom:4px">Cliques</div>
+      <div style="font-size:22px;font-weight:800;color:var(--blue)">${totalCliques.toLocaleString('pt-BR')}</div>
+    </div>
+    <div style="background:var(--bg2);border:1px solid var(--border1);border-radius:12px;padding:16px">
+      <div style="font-size:11px;color:var(--txt3);font-weight:600;text-transform:uppercase;margin-bottom:4px">Impressões</div>
+      <div style="font-size:22px;font-weight:800;color:var(--txt2)">${totalImpress.toLocaleString('pt-BR')}</div>
+    </div>
+  </div>
+  <table style="width:100%;border-collapse:collapse;font-size:13px">
+    <thead><tr style="color:var(--txt3);font-size:11px;text-transform:uppercase">
+      <th style="text-align:left;padding:6px 8px;border-bottom:1px solid var(--border1)">Data</th>
+      <th style="text-align:right;padding:6px 8px;border-bottom:1px solid var(--border1)">Gasto</th>
+      <th style="text-align:right;padding:6px 8px;border-bottom:1px solid var(--border1)">Cliques</th>
+      <th style="text-align:right;padding:6px 8px;border-bottom:1px solid var(--border1)">Impressões</th>
+    </tr></thead>
+    <tbody>${rows.map(r=>`<tr style="border-bottom:1px solid var(--border1)">
+      <td style="padding:8px;color:var(--txt2);font-family:var(--mono)">${r.date||r.day||'-'}</td>
+      <td style="text-align:right;padding:8px;font-family:var(--mono);color:var(--yellow)">${brl(r.cost||r.total_amount||r.spend||0)}</td>
+      <td style="text-align:right;padding:8px;font-family:var(--mono)">${(r.clicks||0).toLocaleString('pt-BR')}</td>
+      <td style="text-align:right;padding:8px;font-family:var(--mono);color:var(--txt3)">${(r.impressions||0).toLocaleString('pt-BR')}</td>
+    </tr>`).join('')||'<tr><td colspan="4" style="padding:20px;text-align:center;color:var(--txt3)">Nenhum dado disponível</td></tr>'}
+    </tbody>
+  </table>`;
 }
 
 async function mlLoadOrders(){
