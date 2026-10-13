@@ -5098,8 +5098,8 @@ function mlUpdateBtn(){
   const syncBtn=document.getElementById('ml-sync-btn');
   if(mlIsConnected()){
     btn.style.background='#d4f5e2';btn.style.borderColor='#00c87a';
-    btn.onclick=mlOpenImport;
-    lbl.textContent='📥 Importar vendas';
+    btn.onclick=null;btn.style.cursor='default';
+    lbl.textContent='✅ ML Conectado';
     if(syncBtn)syncBtn.style.display='flex';
   } else {
     if(syncBtn)syncBtn.style.display='none';
