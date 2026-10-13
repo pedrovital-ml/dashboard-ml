@@ -4232,6 +4232,7 @@ sb.auth.onAuthStateChange(async(event,session)=>{
         if(d.config&&d.config.anthropicKey)anthropicKey=d.config.anthropicKey;
       }else{sales=[];nid=1;}
     }catch(e){sales=[];nid=1;}
+    if(sales.length===0)localStorage.removeItem('ml_last_sync');
     setupRealtimeSync(user.id);
     renderAll();renderEstoque();
     setTimeout(()=>mlAutoSync(true),1500);
