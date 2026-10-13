@@ -2835,7 +2835,14 @@ function showPage(name){
   try{localStorage.setItem('activePage',name);}catch(e){}
   if(name==='stats')renderStats();
   if(name==='estoque')renderEstoque();
-  if(name==='ads'){renderAdsManualList();if(_mlAdsData)renderAdsTab({data:_mlAdsData});}
+  if(name==='ads'){
+    renderAdsManualList();
+    const noAccess=(()=>{try{return localStorage.getItem('ml_ads_no_access')==='1';}catch(e){return false;}})();
+    const tabContent=document.getElementById('ads-tab-content');
+    if(noAccess&&tabContent)tabContent.style.display='none';
+    else if(_mlAdsData)renderAdsTab({data:_mlAdsData});
+    else if(mlIsConnected())mlSyncAds();
+  }
 }
 function openAdsManualModal(){openAdsModal();}
 function renderAdsManualList(){
@@ -5367,15 +5374,11 @@ function renderAdsTab(result){
   const el=document.getElementById('ads-tab-content');
   if(!el)return;
   if(result.noAccess){
-    el.innerHTML=`<div style="padding:32px;text-align:center;color:var(--txt3)">
-      <div style="font-size:32px;margin-bottom:12px">📡</div>
-      <div style="font-weight:700;color:var(--txt);margin-bottom:8px">API de Publicidade indisponível</div>
-      <div style="font-size:13px;margin-bottom:16px">${result.error||'Sua conta não tem acesso à API de ADS do ML ou o escopo não foi autorizado.'}</div>
-      <button onclick="mlDisconnect();mlConnect()" style="padding:8px 16px;border-radius:8px;background:var(--yellow);border:none;cursor:pointer;font-weight:700;font-size:13px;color:#333">🔄 Reconectar ML com permissão de ADS</button>
-      <div style="margin-top:24px;font-size:12px;color:var(--txt3)">Enquanto isso, use o registro manual de ADS abaixo</div>
-    </div>`;
+    try{localStorage.setItem('ml_ads_no_access','1');}catch(e){}
+    el.style.display='none';
     return;
   }
+  el.style.display='';
   const rows=Array.isArray(result.data)?result.data:result.data?.results||[];
   const totalGasto=rows.reduce((s,r)=>s+(r.cost||r.total_amount||r.spend||0),0);
   const totalCliques=rows.reduce((s,r)=>s+(r.clicks||0),0);
