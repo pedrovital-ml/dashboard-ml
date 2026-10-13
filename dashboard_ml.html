@@ -5380,23 +5380,37 @@ async function mlEnrichItemImages(){
   const missing=sales.filter(s=>s.mlItemId&&!s.mlImage&&!_imgTriedIds.has(s.mlItemId));
   if(!missing.length)return;
   const uniqueIds=[...new Set(missing.map(s=>s.mlItemId))];
-  // API de items é pública — fetch direto sem token evita 403
   for(let i=0;i<uniqueIds.length;i+=20){
     const chunk=uniqueIds.slice(i,i+20);
     chunk.forEach(id=>_imgTriedIds.add(id));
     try{
+      // Tenta com token (precisa read_listings scope)
       const data=await mlFetch(`https://api.mercadolibre.com/items?ids=${chunk.join(',')}`);
-      if(!data)continue;
-      const items=Array.isArray(data)?data:[];
-      let changed=false;
-      for(const res of items){
-        const item=res.code===200?res.body:res;
-        if(!item||!item.id)continue;
-        const thumb=(item.pictures?.[0]?.secure_url||item.thumbnail||'').replace(/^http:\/\//,'https://');
-        if(!thumb)continue;
-        sales.filter(s=>s.mlItemId===item.id&&!s.mlImage).forEach(s=>{s.mlImage=thumb;changed=true;});
+      if(data&&Array.isArray(data)){
+        let changed=false;
+        for(const res of data){
+          const item=res.code===200?res.body:res;
+          if(!item||!item.id)continue;
+          const thumb=(item.pictures?.[0]?.secure_url||item.thumbnail||'').replace(/^http:\/\//,'https://');
+          if(!thumb)continue;
+          sales.filter(s=>s.mlItemId===item.id&&!s.mlImage).forEach(s=>{s.mlImage=thumb;changed=true;});
+        }
+        if(changed){saveLS();renderAll();}
+        continue;
       }
-      if(changed){saveLS();renderAll();}
+      // Fallback: busca um por um sem autenticação (items ativos são públicos)
+      for(const mlId of chunk){
+        try{
+          const r=await fetch(`https://api.mercadolibre.com/items/${mlId}`);
+          if(!r.ok)continue;
+          const item=await r.json();
+          const thumb=(item.pictures?.[0]?.secure_url||item.thumbnail||'').replace(/^http:\/\//,'https://');
+          if(!thumb)continue;
+          let changed=false;
+          sales.filter(s=>s.mlItemId===mlId&&!s.mlImage).forEach(s=>{s.mlImage=thumb;changed=true;});
+          if(changed){saveLS();renderAll();}
+        }catch(e2){}
+      }
     }catch(e){}
   }
 }
