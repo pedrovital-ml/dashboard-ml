@@ -1489,6 +1489,11 @@ function _showUndoToast(msg){
 
 let _saveTimer=null;
 function saveLS(){
+  // Backup local imediato (proteção contra falha do Supabase)
+  try{
+    if(estoque.length>0)localStorage.setItem('erp_estoque_bk',JSON.stringify(estoque));
+    if(sales.length>0)localStorage.setItem('erp_sales_bk',JSON.stringify(sales));
+  }catch(e){}
   clearTimeout(_saveTimer);
   _saveTimer=setTimeout(async()=>{
     const {data:{user}}=await sb.auth.getUser();
@@ -4318,8 +4323,27 @@ sb.auth.onAuthStateChange(async(event,session)=>{
         if(d.ads_receita){Object.assign(adsReceitaByMonth,d.ads_receita);localStorage.setItem('ml_ads_receita_v1',JSON.stringify(adsReceitaByMonth));}
         if(d.estoque_images){Object.assign(estoqueImages,d.estoque_images);_standardizeEstoquePhotos();}
         if(d.config&&d.config.anthropicKey)anthropicKey=d.config.anthropicKey;
-      }else{sales=[];nid=1;}
-    }catch(e){sales=[];nid=1;}
+      }else{
+        // Sem dados no Supabase — tenta recuperar backup local
+        try{
+          const bkEst=localStorage.getItem('erp_estoque_bk');
+          const bkSales=localStorage.getItem('erp_sales_bk');
+          if(bkEst)estoque=JSON.parse(bkEst);
+          if(bkSales){sales=JSON.parse(bkSales).map(s=>calcSale(s));nid=Math.max(0,...sales.map(s=>s.id||0))+1;}
+          if(estoque.length||sales.length){console.log('[ERP] Dados recuperados do backup local');saveLS();}
+        }catch(e2){}
+        if(!sales.length)nid=1;
+      }
+    }catch(e){
+      // Erro no Supabase — tenta backup local
+      try{
+        const bkEst=localStorage.getItem('erp_estoque_bk');
+        const bkSales=localStorage.getItem('erp_sales_bk');
+        if(bkEst)estoque=JSON.parse(bkEst);
+        if(bkSales){sales=JSON.parse(bkSales).map(s=>calcSale(s));nid=Math.max(0,...sales.map(s=>s.id||0))+1;}
+      }catch(e2){}
+      if(!sales.length)nid=1;
+    }
     if(sales.length===0)localStorage.removeItem('ml_last_sync');
     setupRealtimeSync(user.id);
     renderAll();renderEstoque();
@@ -5188,7 +5212,7 @@ function mlUpdateBtn(){
   const syncBtn=document.getElementById('ml-sync-btn');
   if(mlIsConnected()){
     btn.style.background='#d4f5e2';btn.style.borderColor='#00c87a';
-    btn.onclick=null;btn.style.cursor='default';
+    btn.onclick=mlBadgeClick;btn.style.cursor='pointer';
     lbl.textContent='✅ ML Conectado';
     if(syncBtn)syncBtn.style.display='flex';
   } else {
@@ -5331,7 +5355,32 @@ async function mlAutoSync(silent=false){
   }
   saveLS();renderAll();
   if(added>0)_showUndoToast(`🔄 ${added} nova${added!==1?'s':''} venda${added!==1?'s':''} sincronizada${added!==1?'s':''} do ML`);
+  mlEnrichItemImages();
   mlSyncAds();
+}
+
+async function mlEnrichItemImages(){
+  if(!mlIsConnected())return;
+  const missing=sales.filter(s=>s.mlItemId&&!s.mlImage);
+  if(!missing.length)return;
+  const uniqueIds=[...new Set(missing.map(s=>s.mlItemId))];
+  // Batch em grupos de 20 (limite da API)
+  for(let i=0;i<uniqueIds.length;i+=20){
+    const chunk=uniqueIds.slice(i,i+20);
+    try{
+      const data=await mlFetch(`https://api.mercadolibre.com/items?ids=${chunk.join(',')}&attributes=id,thumbnail,pictures`);
+      if(!data||!Array.isArray(data))continue;
+      let changed=false;
+      for(const res of data){
+        if(res.code!==200||!res.body)continue;
+        const item=res.body;
+        const thumb=(item.pictures?.[0]?.secure_url||item.thumbnail||'').replace(/^http:\/\//,'https://');
+        if(!thumb)continue;
+        sales.filter(s=>s.mlItemId===item.id&&!s.mlImage).forEach(s=>{s.mlImage=thumb;changed=true;});
+      }
+      if(changed){saveLS();renderAll();}
+    }catch(e){/* silencioso */}
+  }
 }
 
 async function mlSyncAds(){
