@@ -1768,11 +1768,8 @@ function _dedMensal(){
 }
 function toggleCostsRow(id){
   const row=document.getElementById('costs-row-'+id);
-  const btn=document.getElementById('costs-btn-'+id);
   if(!row)return;
-  const open=row.style.display==='none'||!row.style.display;
-  row.style.display=open?'':'none';
-  if(btn)btn.style.color=open?'var(--green)':'var(--txt3)';
+  row.style.display=row.style.display==='none'||!row.style.display?'':'none';
 }
 
 function renderAlertas(data){
@@ -2027,8 +2024,8 @@ async function renderTable(){
     const lc=s.lucro>=0?'var(--green)':'var(--red)';
     const fullBadge='';const flexBadge='';
     return`<tr>
-      <td><div class="prod-img-wrap" id="img-${s.id}" data-nome="${encodeURIComponent(s.prod)}" data-cor="${encodeURIComponent(s.cor||'')}" data-mlimage="${encodeURIComponent(s.mlImage||'')}"><div class="loader"><div class="spinner"></div></div></div></td>
-      <td title="${titulo}${s.mlItemId?' | '+s.mlItemId:''}" style="text-transform:uppercase;color:var(--txt);font-weight:600;max-width:0"><div style="display:flex;align-items:center;gap:5px;min-width:0"><div style="min-width:0;flex:1"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block">${titulo}</span>${s.mlSku?`<span style="font-size:10px;color:var(--txt3);font-weight:500;text-transform:none;letter-spacing:.03em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block">SKU: ${s.mlSku}</span>`:s.mlItemId?`<span style="font-size:10px;color:var(--txt3);font-weight:400;text-transform:none;letter-spacing:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block">${s.mlItemId}</span>`:''}</div>${fullBadge}${flexBadge}</div></td>
+      <td onclick="toggleCostsRow(${s.id})" style="cursor:pointer"><div class="prod-img-wrap" id="img-${s.id}" data-nome="${encodeURIComponent(s.prod)}" data-cor="${encodeURIComponent(s.cor||'')}" data-mlimage="${encodeURIComponent(s.mlImage||'')}"><div class="loader"><div class="spinner"></div></div></div></td>
+      <td onclick="toggleCostsRow(${s.id})" title="${titulo}${s.mlItemId?' | '+s.mlItemId:''}" style="cursor:pointer;text-transform:uppercase;color:var(--txt);font-weight:600;max-width:0"><div style="display:flex;align-items:center;gap:5px;min-width:0"><div style="min-width:0;flex:1"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block">${titulo}</span>${s.mlSku?`<span style="font-size:10px;color:var(--txt3);font-weight:500;text-transform:none;letter-spacing:.03em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block">SKU: ${s.mlSku}</span>`:s.mlItemId?`<span style="font-size:10px;color:var(--txt3);font-weight:400;text-transform:none;letter-spacing:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block">${s.mlItemId}</span>`:''}</div>${fullBadge}${flexBadge}</div></td>
       <td style="color:var(--txt2);font-family:var(--mono)">${d}/${m}/${y.slice(2)}</td>
       <td style="text-align:center">${s.qtd}</td>
       <td style="text-align:right;font-family:var(--mono)">${brl(s.preco)}</td>
@@ -2038,9 +2035,6 @@ async function renderTable(){
       <td style="text-align:right;font-family:var(--mono);font-weight:500;color:${lc}">${brls(s.lucro)}</td>
       <td style="text-align:right"><span class="badge ${mc}">${pct(s.margem)}</span></td>
       <td style="width:1%;white-space:nowrap"><div class="row-actions">
-        <button class="edit-btn" id="costs-btn-${s.id}" onclick="toggleCostsRow(${s.id})" data-tip="Ver custos da venda" style="color:var(--txt3)">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
-        </button>
         ${s.cancelada?`
         <button class="edit-btn reativar-btn" onclick="reativarSale(${s.id})" data-tip="Reativar venda">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg>
