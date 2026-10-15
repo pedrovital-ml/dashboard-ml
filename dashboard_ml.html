@@ -5320,7 +5320,7 @@ function mlUpdateBtn(){
   }
 }
 function mlConnect(){
-  const url=`https://auth.mercadolivre.com.br/authorization?response_type=code&client_id=${ML_CLIENT_ID}&redirect_uri=${encodeURIComponent(ML_REDIRECT)}&scope=offline_access+read_listings+read_product_ads`;
+  const url=`https://auth.mercadolivre.com.br/authorization?response_type=code&client_id=${ML_CLIENT_ID}&redirect_uri=${encodeURIComponent(ML_REDIRECT)}&scope=offline_access+read_listings+read_product_ads+read_shipments`;
   window.location.href=url;
 }
 function mlDisconnect(){
@@ -5444,9 +5444,21 @@ async function mlAutoSync(silent=false){
     const mlImage=((item.item.thumbnail||'')).replace(/^http:\/\//,'https://');
     const mlSku=item.item.seller_custom_field||'';
     let frete=0;
-    if(!isFull&&!isFlex){
-      const sc=o.payments?.[0]?.shipping_cost;
-      if(sc&&sc>0)frete=+Number(sc).toFixed(2);
+    if(!isFull){
+      const shipId=o.shipping?.id;
+      if(shipId){
+        try{
+          const sd=await mlFetch(`https://api.mercadolibre.com/shipments/${shipId}`);
+          if(sd&&!sd.error&&!sd.message){
+            const cost=+(sd.sender_cost||sd.base_cost||0);
+            if(cost>0)frete=+cost.toFixed(2);
+          }
+        }catch(e){}
+      }
+      if(!frete){
+        const sc=o.payments?.[0]?.shipping_cost;
+        if(sc&&sc>0)frete=+Number(sc).toFixed(2);
+      }
     }
     const match=_mlMatchProd(mlTitle);
     const prod=match?match.produto:mlTitle;
