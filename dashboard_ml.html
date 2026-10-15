@@ -782,7 +782,6 @@ thead tr{background:linear-gradient(90deg,rgba(68,153,255,.04),rgba(160,112,255,
               <th style="width:84px;text-align:right" id="th-custo" class="th-sort" onclick="setSort('custo')" data-tip="Ordenar por custo do produto">Custo prod.<span class="sort-arr" id="arr-custo"></span></th>
               <th style="width:80px;text-align:right" id="th-lucro" class="th-sort" onclick="setSort('lucro')" data-tip="Ordenar por lucro líquido">Lucro liq.<span class="sort-arr" id="arr-lucro"></span></th>
               <th style="width:68px;text-align:right" id="th-margem" class="th-sort" onclick="setSort('margem')" data-tip="Ordenar por margem de lucro (%)">Margem<span class="sort-arr" id="arr-margem"></span></th>
-              <th style="width:58px"></th>
             </tr>
           </thead>
           <tbody id="tbl-body"></tbody>
@@ -1569,6 +1568,7 @@ function getFiltered(){
 /* ── PERIOD ── */
 let activePeriod='hoje';
 let sortCol='data',sortDir=-1;
+const _openCostRows=new Set();
 const SORT_COLS=['titulo','data','qtde','valor','tarifa','frete','custo','lucro','margem'];
 function setSort(col){
   if(sortCol===col)sortDir=-sortDir;
@@ -1769,7 +1769,19 @@ function _dedMensal(){
 function toggleCostsRow(id){
   const row=document.getElementById('costs-row-'+id);
   if(!row)return;
-  row.style.display=row.style.display==='none'||!row.style.display?'':'none';
+  if(row.style.display==='none'){row.style.display='';_openCostRows.add(id);}
+  else{row.style.display='none';_openCostRows.delete(id);}
+}
+function updateSaleCost(id,field,rawVal){
+  const s=sales.find(x=>x.id===id);
+  if(!s)return;
+  const n=parseFloat((rawVal+'').replace(/\./g,'').replace(',','.'))||0;
+  if(s[field]===n)return;
+  s[field]=n;
+  Object.assign(s,calcSale(s));
+  _openCostRows.add(id);
+  saveLS();
+  renderAll();
 }
 
 function renderAlertas(data){
@@ -2034,56 +2046,50 @@ async function renderTable(){
       <td style="text-align:right;font-family:var(--mono);color:var(--yellow)">${brl(s.custo)}</td>
       <td style="text-align:right;font-family:var(--mono);font-weight:500;color:${lc}">${brls(s.lucro)}</td>
       <td style="text-align:right"><span class="badge ${mc}">${pct(s.margem)}</span></td>
-      <td style="width:1%;white-space:nowrap"><div class="row-actions">
-        ${s.cancelada?`
-        <button class="edit-btn reativar-btn" onclick="reativarSale(${s.id})" data-tip="Reativar venda">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg>
-        </button>`:`
-        <button class="copy-btn edit-btn" onclick="copySale(${s.id})" data-tip="Copiar venda">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-        </button>
-        <button class="edit-btn" onclick="openEditModal(${s.id})" data-tip="Editar">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-        </button>
-        <button class="edit-btn cancel-sale-btn" onclick="openCancelChoice(${s.id})" data-tip="Venda cancelada">
-          <svg width="12" height="12" viewBox="2 4 20 16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14h12a4 4 0 0 1 0-8H4"/><polyline points="8 10 4 14 8 18"/></svg>
-        </button>`}
-        <button class="del-btn" onclick="del(${s.id})" data-tip="Remover">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-        </button>
-      </div></td>
     </tr>
     <tr id="costs-row-${s.id}" style="display:none">
-      <td colspan="11" style="padding:0 8px 8px 58px">
-        <div style="display:flex;gap:20px;background:var(--bg3);border-radius:8px;padding:10px 14px;border:1px solid var(--border1)">
-          <div style="display:flex;flex-direction:column;gap:2px;min-width:80px">
+      <td colspan="10" style="padding:0 8px 8px 58px">
+        <div style="display:flex;gap:20px;align-items:flex-end;background:var(--bg3);border-radius:8px;padding:10px 14px;border:1px solid var(--border1)">
+          <div style="display:flex;flex-direction:column;gap:3px">
             <span style="font-size:10px;color:var(--txt3);text-transform:uppercase;letter-spacing:.06em">Taxa ML</span>
-            <span style="font-size:12px;font-family:var(--mono);color:var(--txt2)">${brl(s.taxa_r)}</span>
+            <span style="font-size:12px;font-family:var(--mono);color:var(--txt2);padding:3px 6px">${brl(s.taxa_r)}</span>
           </div>
-          <div style="display:flex;flex-direction:column;gap:2px;min-width:80px">
-            <span style="font-size:10px;color:var(--txt3);text-transform:uppercase;letter-spacing:.06em">Custo prod.</span>
-            <span style="font-size:12px;font-family:var(--mono);color:var(--txt2)">${brl(s.custo*s.qtd)}</span>
+          <div style="display:flex;flex-direction:column;gap:3px">
+            <span style="font-size:10px;color:var(--txt3);text-transform:uppercase;letter-spacing:.06em">Custo prod.${s.qtd>1?' (unit)':''}</span>
+            <input type="text" value="${(s.custo||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}"
+              style="font-size:12px;font-family:var(--mono);color:var(--txt);background:var(--bg2);border:1px solid var(--border2);border-radius:5px;padding:2px 7px;width:88px;text-align:right;outline:none;transition:border-color .15s"
+              onfocus="this.style.borderColor='var(--green)'"
+              onblur="this.style.borderColor='var(--border2)';updateSaleCost(${s.id},'custo',this.value)"
+              onkeydown="if(event.key==='Enter')this.blur()"
+              onclick="event.stopPropagation()">
           </div>
-          <div style="display:flex;flex-direction:column;gap:2px;min-width:80px">
+          <div style="display:flex;flex-direction:column;gap:3px">
             <span style="font-size:10px;color:var(--txt3);text-transform:uppercase;letter-spacing:.06em">Frete</span>
-            <span style="font-size:12px;font-family:var(--mono);color:var(--txt2)">${brl(s.frete)}</span>
+            <input type="text" value="${(s.frete||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}"
+              style="font-size:12px;font-family:var(--mono);color:var(--txt);background:var(--bg2);border:1px solid var(--border2);border-radius:5px;padding:2px 7px;width:88px;text-align:right;outline:none;transition:border-color .15s"
+              onfocus="this.style.borderColor='var(--green)'"
+              onblur="this.style.borderColor='var(--border2)';updateSaleCost(${s.id},'frete',this.value)"
+              onkeydown="if(event.key==='Enter')this.blur()"
+              onclick="event.stopPropagation()">
           </div>
-          ${s.imposto_r>0?`<div style="display:flex;flex-direction:column;gap:2px;min-width:80px">
+          ${s.imposto_r>0?`<div style="display:flex;flex-direction:column;gap:3px">
             <span style="font-size:10px;color:var(--txt3);text-transform:uppercase;letter-spacing:.06em">Imposto</span>
-            <span style="font-size:12px;font-family:var(--mono);color:var(--txt2)">${brl(s.imposto_r)}</span>
+            <span style="font-size:12px;font-family:var(--mono);color:var(--txt2);padding:3px 6px">${brl(s.imposto_r)}</span>
           </div>`:''}
-          ${s.ads>0?`<div style="display:flex;flex-direction:column;gap:2px;min-width:80px">
+          ${s.ads>0?`<div style="display:flex;flex-direction:column;gap:3px">
             <span style="font-size:10px;color:var(--txt3);text-transform:uppercase;letter-spacing:.06em">ADS</span>
-            <span style="font-size:12px;font-family:var(--mono);color:#ff9500">${brl(s.ads)}</span>
+            <span style="font-size:12px;font-family:var(--mono);color:#ff9500;padding:3px 6px">${brl(s.ads)}</span>
           </div>`:''}
-          <div style="display:flex;flex-direction:column;gap:2px;min-width:80px;margin-left:auto">
+          <div style="display:flex;flex-direction:column;gap:3px;margin-left:auto">
             <span style="font-size:10px;color:var(--txt3);text-transform:uppercase;letter-spacing:.06em">Lucro líq.</span>
-            <span style="font-size:12px;font-family:var(--mono);font-weight:600;color:${lc}">${brls(s.lucro)}</span>
+            <span style="font-size:12px;font-family:var(--mono);font-weight:600;color:${lc};padding:3px 6px">${brls(s.lucro)}</span>
           </div>
+          <button onclick="del(${s.id})" style="background:none;border:1px solid var(--border2);border-radius:5px;cursor:pointer;color:var(--txt3);font-size:10px;padding:3px 9px;transition:all .15s;white-space:nowrap;margin-bottom:1px" onmouseover="this.style.color='var(--red)';this.style.borderColor='var(--red)'" onmouseout="this.style.color='var(--txt3)';this.style.borderColor='var(--border2)'">remover</button>
         </div>
       </td>
     </tr>`;
   }).join('');
+  _openCostRows.forEach(id=>{const r=document.getElementById('costs-row-'+id);if(r)r.style.display='';});
 
   // Image loading from cache — keyed by nome+cor
   const svgEdit=`<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
