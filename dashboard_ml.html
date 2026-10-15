@@ -5408,20 +5408,23 @@ async function mlAutoSync(silent=false){
   const _syncBtn=document.getElementById('ml-sync-btn');
   if(_syncBtn){_syncBtn.disabled=true;_syncBtn.textContent='Sincronizando…';}
   const lastRaw=localStorage.getItem('ml_last_sync');
-  const lastDate=lastRaw?new Date(lastRaw):new Date('2026-02-01T00:00:00.000-03:00');
+  // Sem lastSync: sincroniza últimos 90 dias (não desde fev/26 que geraria 1000+ pedidos)
+  const _90diasAtras=new Date(Date.now()-90*24*60*60*1000);
+  const lastDate=lastRaw?new Date(lastRaw):_90diasAtras;
   const fromStr=lastDate.toISOString().slice(0,19)+'.000-03:00';
   let allOrders=[];
   let syncOk=false;
   try{
     let offset=0;
     while(true){
-      const url=`https://api.mercadolibre.com/orders/search?seller=${userId}&order.status=paid&order.date_created.from=${encodeURIComponent(fromStr)}&sort=date_asc&limit=50&offset=${offset}`;
+      // date_desc = mais recentes primeiro; garante que pedidos do período "hoje/ontem/7dias/30dias" sempre entram
+      const url=`https://api.mercadolibre.com/orders/search?seller=${userId}&order.status=paid&order.date_created.from=${encodeURIComponent(fromStr)}&sort=date_desc&limit=50&offset=${offset}`;
       const data=await mlFetch(url);
       if(!data||!data.results)break;
       syncOk=true;
       allOrders=allOrders.concat(data.results);
       if(data.results.length<50||allOrders.length>=(data.paging?.total||0))break;
-      offset+=50;if(offset>=500)break;
+      offset+=50;if(offset>=1000)break;
     }
   }catch(e){if(_syncBtn){_syncBtn.disabled=false;_syncBtn.textContent='Sincronizar ML';}return;}
   if(!syncOk){
@@ -5480,8 +5483,14 @@ async function mlAutoSync(silent=false){
       }catch(e){}
     }
     if(!frete){
+      // fallback 1: o que o comprador pagou de frete (pode ser 0 se frete grátis)
       const sc=o.payments?.[0]?.shipping_cost;
       if(sc&&sc>0)frete=+Number(sc).toFixed(2);
+    }
+    if(!frete){
+      // fallback 2: custo de envio no próprio objeto do pedido
+      const sc2=o.shipping?.cost;
+      if(sc2&&sc2>0)frete=+Number(sc2).toFixed(2);
     }
     const match=_mlMatchProd(mlTitle);
     const prod=match?match.produto:mlTitle;
