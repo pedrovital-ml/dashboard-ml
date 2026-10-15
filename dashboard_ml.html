@@ -702,8 +702,8 @@ thead tr{background:linear-gradient(90deg,rgba(68,153,255,.04),rgba(160,112,255,
           </div>
         </div>
         <div class="last-up">
-          <span class="pulse"></span>
-          Última atualização: <span id="time-now"></span>
+          <span class="pulse" id="sync-pulse"></span>
+          <span id="sync-status-lbl">Última sincronização: <span id="last-sync-time">—</span></span>
         </div>
       </div>
     </div>
@@ -1542,7 +1542,20 @@ function saveLS(){
 
 /* ── TIME ── */
 function updateTime(){
-  set('time-now',new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',timeZone:'America/Sao_Paulo'}));
+  const now=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',timeZone:'America/Sao_Paulo'});
+  const el=document.getElementById('last-sync-time');
+  if(el&&el.dataset.synced){
+    const diff=Math.round((Date.now()-parseInt(el.dataset.synced))/60000);
+    el.textContent=diff<=1?'agora mesmo':diff<60?`${diff} min atrás`:now;
+  }
+}
+function _updateSyncTime(){
+  const el=document.getElementById('last-sync-time');
+  if(!el)return;
+  el.dataset.synced=Date.now();
+  el.textContent='agora mesmo';
+  const pulse=document.getElementById('sync-pulse');
+  if(pulse){pulse.style.background='var(--green)';setTimeout(()=>{pulse.style.background='';},2000);}
 }
 updateTime();setInterval(updateTime,30000);
 
@@ -4453,12 +4466,13 @@ sb.auth.onAuthStateChange(async(event,session)=>{
       if(!sales.length)nid=1;
     }
     if(sales.length===0)localStorage.removeItem('ml_last_sync');
+    else{const _ls=localStorage.getItem('ml_last_sync');if(_ls)_updateSyncTime();}
     setupRealtimeSync(user.id);
     renderAll();renderEstoque();
     setTimeout(()=>mlAutoSync(true),1500);
     setTimeout(()=>mlEnrichItemImages(),3000);
     if(_mlSyncInterval)clearInterval(_mlSyncInterval);
-    _mlSyncInterval=setInterval(()=>{if(mlIsConnected())mlAutoSync(true);},2*60*1000);
+    _mlSyncInterval=setInterval(()=>mlAutoSync(true),2*60*1000);
     if(typeof _showPendingMilestone==='function')_showPendingMilestone();
     const _savedPage=(()=>{try{return localStorage.getItem('activePage')||'dashboard';}catch(e){return'dashboard';}})();
     if(_savedPage!=='dashboard')showPage(_savedPage);
@@ -5355,8 +5369,10 @@ async function mlRefreshToken(){
     const d=await r.json();
     if(d.access_token){
       localStorage.setItem('ml_access_token',d.access_token);
-      localStorage.setItem('ml_refresh_token',d.refresh_token);
-      localStorage.setItem('ml_token_expiry',Date.now()+d.expires_in*1000);
+      if(d.refresh_token)localStorage.setItem('ml_refresh_token',d.refresh_token);
+      localStorage.setItem('ml_token_expiry',String(Date.now()+d.expires_in*1000));
+      if(d.user_id)localStorage.setItem('ml_user_id',String(d.user_id));
+      mlUpdateBtn();
       return true;
     }
   }catch(e){}
@@ -5406,9 +5422,21 @@ function closeMlImport(){document.getElementById('ml-import-overlay').style.disp
 
 /* ── AUTO-SYNC ML ── */
 const _mlItemCache={};
+async function mlGetUserId(){
+  let uid=localStorage.getItem('ml_user_id');
+  if(uid)return uid;
+  try{const d=await mlFetch('https://api.mercadolibre.com/users/me');if(d&&d.id){uid=String(d.id);localStorage.setItem('ml_user_id',uid);}}catch(e){}
+  return uid||null;
+}
 async function mlAutoSync(silent=false){
-  if(!mlIsConnected())return;
-  const userId=localStorage.getItem('ml_user_id');
+  if(!mlIsConnected()){
+    const refreshed=await mlRefreshToken();
+    if(!refreshed){
+      if(!silent)_showUndoToast('⚠️ Token ML expirado — reconecte o Mercado Livre');
+      return;
+    }
+  }
+  const userId=await mlGetUserId();
   if(!userId)return;
   const _syncBtn=document.getElementById('ml-sync-btn');
   if(_syncBtn){_syncBtn.disabled=true;_syncBtn.textContent='Sincronizando…';}
@@ -5438,6 +5466,7 @@ async function mlAutoSync(silent=false){
     return;
   }
   localStorage.setItem('ml_last_sync',new Date().toISOString());
+  _updateSyncTime();
   const existingIds=new Set(sales.filter(s=>s.mlOrderId).map(s=>String(s.mlOrderId)));
   const newOrders=allOrders.filter(o=>!existingIds.has(String(o.id)));
   if(_syncBtn){_syncBtn.disabled=false;_syncBtn.textContent='Sincronizar ML';}
