@@ -1826,8 +1826,9 @@ function renderAlertas(data){
 }
 
 function renderTopBar(data){
-  const fat=data.reduce((a,s)=>a+s.preco,0);
-  const lucro=+(data.reduce((a,s)=>a+s.lucro,0)-_dedMensal()).toFixed(2);
+  const d=data.filter(s=>!s.cancelada);
+  const fat=d.reduce((a,s)=>a+s.preco,0);
+  const lucro=+(d.reduce((a,s)=>a+s.lucro,0)-_dedMensal()).toFixed(2);
   const marg=fat>0?lucro/fat*100:0;
   set('tb-fat',brl(fat));
   const lel=document.getElementById('tb-lucro');
@@ -1857,33 +1858,37 @@ const icoAds=`<svg viewBox="0 0 24 24" fill="none" stroke="#ff9500" stroke-width
 const icoFrete=`<svg viewBox="0 0 24 24" fill="none" stroke="var(--yellow)" stroke-width="2"><rect x="1" y="3" width="15" height="13" rx="1"/><path d="M16 8h4l3 5v3h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>`;
 
 function renderKPIs(data){
-  const fat=data.reduce((a,s)=>a+s.preco,0);
-  const lucro=+(data.reduce((a,s)=>a+s.lucro,0)-_dedMensal()).toFixed(2);
-  const custo=data.reduce((a,s)=>a+s.custo*s.qtd,0);
-  const frete=data.reduce((a,s)=>a+s.frete,0);
-  const tarifa=data.reduce((a,s)=>a+s.taxa_r,0);
-  const ads=data.reduce((a,s)=>a+(s.ads||0),0);
-  const n=data.length;
-  const totalUnits=data.reduce((a,s)=>a+(s.qtd||1),0);
+  const d=data.filter(s=>!s.cancelada);
+  const fat=d.reduce((a,s)=>a+s.preco,0);
+  const lucro=+(d.reduce((a,s)=>a+s.lucro,0)-_dedMensal()).toFixed(2);
+  const custo=d.reduce((a,s)=>a+s.custo*s.qtd,0);
+  const frete=d.reduce((a,s)=>a+s.frete,0);
+  const tarifa=d.reduce((a,s)=>a+s.taxa_r,0);
+  const ads=d.reduce((a,s)=>a+(s.ads||0),0);
+  const n=d.length;
+  const totalUnits=d.reduce((a,s)=>a+(s.qtd||1),0);
+  const nCancel=data.filter(s=>s.cancelada).length;
+  const fatCancel=data.filter(s=>s.cancelada).reduce((a,s)=>a+s.preco,0);
   const avgL=n?lucro/n:0;
   const avgM=fat>0?lucro/fat*100:0;
   const ticket=n?fat/n:0;
   const mc=mgColor(avgM);
   const mcbg=mgColorBg(avgM);
   const prev=getPrevFiltered();
-  const pfat=prev.reduce((a,s)=>a+s.preco,0);
-  const plucro=prev.reduce((a,s)=>a+s.lucro,0);
-  const pcusto=prev.reduce((a,s)=>a+s.custo*s.qtd,0);
-  const pfrete=prev.reduce((a,s)=>a+s.frete,0);
-  const ptarifa=prev.reduce((a,s)=>a+s.taxa_r,0);
-  const pn=prev.length;
+  const pd=prev.filter(s=>!s.cancelada);
+  const pfat=pd.reduce((a,s)=>a+s.preco,0);
+  const plucro=pd.reduce((a,s)=>a+s.lucro,0);
+  const pcusto=pd.reduce((a,s)=>a+s.custo*s.qtd,0);
+  const pfrete=pd.reduce((a,s)=>a+s.frete,0);
+  const ptarifa=pd.reduce((a,s)=>a+s.taxa_r,0);
+  const pn=pd.length;
   const pavgL=pn?plucro/pn:0;
   const pticket=pn?pfat/pn:0;
   document.getElementById('kpi-top').innerHTML=
     kcard(icoVendas,'Vendas',n,`${totalUnits} unidade${totalUnits!==1?'s':''}`,  'var(--green)','var(--greenbg)',cmpArrow(n,pn))+
     kcard(icoTicket,'Ticket médio',brl(ticket),'por venda',    'var(--purple)','var(--purplebg)',cmpArrow(ticket,pticket))+
     kcard(icoLucro,'Lucro médio',brls(avgL),'('+pct(avgM)+')',mc,mcbg,cmpArrow(avgL,pavgL))+
-    kcard(icoCancel,'Canceladas','0','(R$ 0,00)',              'var(--red)','var(--redbg)');
+    kcard(icoCancel,'Canceladas',nCancel,nCancel?'('+brl(fatCancel)+')':'(R$ 0,00)','var(--red)','var(--redbg)');
   document.getElementById('kpi-bot').innerHTML=
     kcard(icoCusto,'Custos',brl(custo),fat>0?'('+pct(custo/fat*100)+')':'—',    'var(--yellow)','var(--yellowbg)',cmpArrow(custo,pcusto))+
     kcard(icoTarifa,'Tarifas ML',brl(tarifa),fat>0?'('+pct(tarifa/fat*100)+')':'—','#8892aa','rgba(136,146,170,.08)',cmpArrow(tarifa,ptarifa))+
@@ -1906,7 +1911,7 @@ function renderKPIs(data){
       +'<span style="color:#ff9500;opacity:.7">'+(_ag>0?_subLbl:'Ver publicidade →')+'</span>'
       +_recSpan+_roasSpan+_tacosSpan+'</div></div>';})()+''+
     kcard(icoFrete,'Frete',brl(frete),fat>0?'('+pct(frete/fat*100)+')':'—',     'var(--yellow)','var(--yellowbg)',cmpArrow(frete,pfrete))+
-    (function(){const _tax4=data.reduce((a,s)=>a+(s.imposto_r||0),0);const _oldMs=new Set(data.filter(s=>!s.cancelada&&(s.data||'').slice(0,7)>=MEI_START&&(s.data||'').slice(0,7)<MEI_CUTOFF).map(s=>(s.data||'').slice(0,7)));const _mei=_oldMs.size*MEI_MENSAL;const _tot=_tax4+_mei;const _sub=_mei>0&&_tax4>0?'MEI+4% do fat.':_mei>0?'DAS MEI mensal':fat>0?'('+pct(_tot/fat*100)+') 4% do fat.':'4% do faturamento';return kcard(icoImposto,'Impostos',brl(_tot),_sub,'var(--blue)','var(--bluebg)');})();
+    (function(){const _tax4=d.reduce((a,s)=>a+(s.imposto_r||0),0);const _oldMs=new Set(d.filter(s=>(s.data||'').slice(0,7)>=MEI_START&&(s.data||'').slice(0,7)<MEI_CUTOFF).map(s=>(s.data||'').slice(0,7)));const _mei=_oldMs.size*MEI_MENSAL;const _tot=_tax4+_mei;const _sub=_mei>0&&_tax4>0?'MEI+4% do fat.':_mei>0?'DAS MEI mensal':fat>0?'('+pct(_tot/fat*100)+') 4% do fat.':'4% do faturamento';return kcard(icoImposto,'Impostos',brl(_tot),_sub,'var(--blue)','var(--bluebg)');})();
   set('k-receita',brl(fat));
   set('k-ads-v',n);
 }
@@ -5525,6 +5530,27 @@ async function mlAutoSync(silent=false){
   if(added>0)_showUndoToast(`🔄 ${added} nova${added!==1?'s':''} venda${added!==1?'s':''} sincronizada${added!==1?'s':''} do ML`);
   mlEnrichItemImages();
   mlSyncAds();
+  mlBackfillFrete();
+}
+
+async function mlBackfillFrete(){
+  const userId=mlUser();if(!userId)return;
+  const toFix=sales.filter(s=>s.mlOrderId&&(s.frete===0||s.frete==null)&&!s.cancelada);
+  if(!toFix.length)return;
+  let fixed=0;
+  for(const s of toFix.slice(0,30)){
+    try{
+      const ord=await mlFetch(`https://api.mercadolibre.com/orders/${s.mlOrderId}`);
+      if(!ord||ord.error||ord.message)continue;
+      const shipId=ord.shipping?.id;
+      if(!shipId)continue;
+      const sd=await mlFetch(`https://api.mercadolibre.com/shipments/${shipId}`);
+      if(!sd||sd.error||sd.message)continue;
+      const cost=+(sd.sender_cost||sd.base_cost||0);
+      if(cost>0){s.frete=+cost.toFixed(2);Object.assign(s,calcSale(s));fixed++;}
+    }catch(e){}
+  }
+  if(fixed>0){saveLS();renderAll();_showUndoToast(`📦 Frete atualizado em ${fixed} venda${fixed!==1?'s':''}`);}
 }
 
 const _imgTriedIds=new Set();
