@@ -5436,42 +5436,47 @@ async function mlAutoSync(silent=false){
   const existingIds=new Set(sales.filter(s=>s.mlOrderId).map(s=>String(s.mlOrderId)));
   const newOrders=allOrders.filter(o=>!existingIds.has(String(o.id)));
   if(_syncBtn){_syncBtn.disabled=false;_syncBtn.textContent='Sincronizar ML';}
-  // Auto-detecta cancelamentos do ML
+  // Auto-detecta cancelamentos/devoluções do ML (todos os status negativos)
+  // Busca sempre os últimos 90 dias para pegar money_returned antigos
   (async()=>{
-    try{
-      const cancelUrl=`https://api.mercadolibre.com/orders/search?seller=${userId}&order.status=cancelled&order.date_last_updated.from=${encodeURIComponent(fromStr)}&limit=50`;
-      const cd=await mlFetch(cancelUrl);
-      if(cd&&cd.results&&cd.results.length){
-        let nc=0;
-        for(const o of cd.results){
-          const ex=sales.find(s=>s.mlOrderId===String(o.id));
-          if(ex){
-            // Já existe — marca como cancelada se ainda não estava
-            if(!ex.cancelada){const idx=sales.indexOf(ex);sales[idx]=calcSale({...ex,cancelada:true,reembolso:ex.preco});nc++;}
-          } else {
-            // Não existe no ERP — adiciona como venda cancelada
-            const item=o.order_items?.[0];if(!item)continue;
-            const mlTitle=item.item?.title||'';
-            const mlItemId=item.item?.id||'';
-            const qtd=item.quantity||1;
-            const preco=+(item.unit_price*qtd).toFixed(2);
-            const taxa_pct=preco>0?+(item.sale_fee/preco*100).toFixed(2):13;
-            const data_v=(o.date_created||brToday()).slice(0,10);
-            const _tags=Array.isArray(o.tags)?o.tags:[];
-            const _logistic=o.shipping?.logistic_type||'';
-            const isFull=!!(o.fulfillment||_logistic==='fulfillment'||_tags.some(t=>['fulfillment','meli_fulfillment','fulfillment_ml'].includes(t)));
-            const isFlex=!isFull&&!!(_logistic==='self_service'||_logistic==='flex'||_tags.some(t=>['flex','logistic_flex','mshops_flex'].includes(t)));
-            const mlImage=((item.item?.thumbnail||'')).replace(/^http:\/\//,'https://');
-            const mlSku=item.item?.seller_custom_field||'';
-            const match=_mlMatchProd(mlTitle);
-            const prod=match?match.produto:mlTitle;
-            sales.push(calcSale({id:nid++,data:data_v,prod,cor:'',qtd,preco,custo:0,custos:[0],frete:0,taxa:taxa_pct,desconto:0,ads:0,fullML:isFull,flex:isFlex,cancelada:true,reembolso:preco,mlOrderId:String(o.id),mlItemId,mlTitle,mlImage,mlSku}));
-            nc++;
-          }
-        }
-        if(nc>0){saveLS();renderAll();_showUndoToast(`🚫 ${nc} venda${nc!==1?'s':''} cancelada${nc!==1?'s':''} detectada${nc!==1?'s':''} no ML`);}
+    const _negFrom=new Date(Date.now()-90*24*60*60*1000).toISOString().slice(0,19)+'.000-03:00';
+    const negativeStatuses=['cancelled','money_returned','money_to_be_returned','partially_refunded'];
+    let allCancelled=[];
+    for(const status of negativeStatuses){
+      try{
+        const cd=await mlFetch(`https://api.mercadolibre.com/orders/search?seller=${userId}&order.status=${status}&order.date_last_updated.from=${encodeURIComponent(_negFrom)}&limit=50`);
+        if(cd&&cd.results)allCancelled=allCancelled.concat(cd.results);
+      }catch(e){}
+    }
+    if(!allCancelled.length)return;
+    let nc=0;
+    for(const o of allCancelled){
+      const ex=sales.find(s=>s.mlOrderId===String(o.id));
+      if(ex){
+        // Já existe — marca como cancelada se ainda não estava
+        if(!ex.cancelada){const idx=sales.indexOf(ex);sales[idx]=calcSale({...ex,cancelada:true,reembolso:ex.preco});nc++;}
+      } else {
+        // Não existe no ERP — adiciona como venda cancelada
+        const item=o.order_items?.[0];if(!item)continue;
+        const mlTitle=item.item?.title||'';
+        const mlItemId=item.item?.id||'';
+        const qtd=item.quantity||1;
+        const preco=+(item.unit_price*qtd).toFixed(2);
+        const taxa_pct=preco>0?+(item.sale_fee/preco*100).toFixed(2):13;
+        const data_v=(o.date_created||brToday()).slice(0,10);
+        const _tags=Array.isArray(o.tags)?o.tags:[];
+        const _logistic=o.shipping?.logistic_type||'';
+        const isFull=!!(o.fulfillment||_logistic==='fulfillment'||_tags.some(t=>['fulfillment','meli_fulfillment','fulfillment_ml'].includes(t)));
+        const isFlex=!isFull&&!!(_logistic==='self_service'||_logistic==='flex'||_tags.some(t=>['flex','logistic_flex','mshops_flex'].includes(t)));
+        const mlImage=((item.item?.thumbnail||'')).replace(/^http:\/\//,'https://');
+        const mlSku=item.item?.seller_custom_field||'';
+        const match=_mlMatchProd(mlTitle);
+        const prod=match?match.produto:mlTitle;
+        sales.push(calcSale({id:nid++,data:data_v,prod,cor:'',qtd,preco,custo:0,custos:[0],frete:0,taxa:taxa_pct,desconto:0,ads:0,fullML:isFull,flex:isFlex,cancelada:true,reembolso:preco,mlOrderId:String(o.id),mlItemId,mlTitle,mlImage,mlSku}));
+        nc++;
       }
-    }catch(e){}
+    }
+    if(nc>0){saveLS();renderAll();_showUndoToast(`🚫 ${nc} venda${nc!==1?'s':''} cancelada${nc!==1?'s':''} detectada${nc!==1?'s':''} no ML`);}
   })();
   if(!newOrders.length){if(!silent)_showUndoToast('✅ Tudo sincronizado — nenhuma venda nova');mlEnrichItemImages();return;}
   _pushUndo();
