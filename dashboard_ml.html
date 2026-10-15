@@ -187,7 +187,8 @@ tbody tr:hover td{background:var(--bg3)}
 .del-btn:hover{background:var(--redbg);color:var(--red)}
 .cancel-sale-btn:hover{background:var(--redbg);color:var(--red)}
 .reativar-btn:hover{background:var(--greenbg);color:var(--green)}
-tr.row-cancelled td{opacity:.55}
+tr.row-cancelled{background:rgba(255,77,106,.04)}
+tr.row-cancelled td{opacity:.6}
 tr.row-cancelled td:first-child{opacity:1}
 .badge-cancelled{display:inline-flex;align-items:center;gap:3px;font-size:9px;font-weight:600;color:var(--red);background:var(--redbg);border-radius:4px;padding:1px 5px;margin-left:6px;vertical-align:middle}
 .badge-full{display:inline-flex;align-items:center;gap:3px;font-size:9px;font-weight:700;letter-spacing:.04em;color:#00a650;background:rgba(0,166,80,.12);border:1px solid rgba(0,166,80,.25);border-radius:4px;padding:1px 5px;margin-left:5px;vertical-align:middle;cursor:pointer;user-select:none}
@@ -2035,9 +2036,9 @@ async function renderTable(){
     const mc=s.margem>=26?'gh':s.margem>=20?'g':s.margem>=0?'y':'r';
     const lc=s.lucro>=0?'var(--green)':'var(--red)';
     const fullBadge='';const flexBadge='';
-    return`<tr>
+    return`<tr${s.cancelada?' class="row-cancelled"':''}>
       <td onclick="toggleCostsRow(${s.id})" style="cursor:pointer"><div class="prod-img-wrap" id="img-${s.id}" data-nome="${encodeURIComponent(s.prod)}" data-cor="${encodeURIComponent(s.cor||'')}" data-mlimage="${encodeURIComponent(s.mlImage||'')}"><div class="loader"><div class="spinner"></div></div></div></td>
-      <td onclick="toggleCostsRow(${s.id})" title="${titulo}${s.mlItemId?' | '+s.mlItemId:''}" style="cursor:pointer;text-transform:uppercase;color:var(--txt);font-weight:600;max-width:0"><div style="display:flex;align-items:center;gap:5px;min-width:0"><div style="min-width:0;flex:1"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block">${titulo}</span>${s.mlSku?`<span style="font-size:10px;color:var(--txt3);font-weight:500;text-transform:none;letter-spacing:.03em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block">SKU: ${s.mlSku}</span>`:s.mlItemId?`<span style="font-size:10px;color:var(--txt3);font-weight:400;text-transform:none;letter-spacing:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block">${s.mlItemId}</span>`:''}</div>${fullBadge}${flexBadge}</div></td>
+      <td onclick="toggleCostsRow(${s.id})" title="${titulo}${s.mlItemId?' | '+s.mlItemId:''}" style="cursor:pointer;text-transform:uppercase;color:var(--txt);font-weight:600;max-width:0"><div style="display:flex;align-items:center;gap:5px;min-width:0"><div style="min-width:0;flex:1"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block">${titulo}</span>${s.mlSku?`<span style="font-size:10px;color:var(--txt3);font-weight:500;text-transform:none;letter-spacing:.03em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block">SKU: ${s.mlSku}</span>`:s.mlItemId?`<span style="font-size:10px;color:var(--txt3);font-weight:400;text-transform:none;letter-spacing:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block">${s.mlItemId}</span>`:''}</div>${fullBadge}${flexBadge}${s.cancelada?'<span class="badge-cancelled">✕ Cancelada</span>':''}</div></td>
       <td style="color:var(--txt2);font-family:var(--mono)">${d}/${m}/${y.slice(2)}</td>
       <td style="text-align:center">${s.qtd}</td>
       <td style="text-align:right;font-family:var(--mono)">${brl(s.preco)}</td>
@@ -2084,7 +2085,13 @@ async function renderTable(){
             <span style="font-size:10px;color:var(--txt3);text-transform:uppercase;letter-spacing:.06em">Lucro líq.</span>
             <span style="font-size:12px;font-family:var(--mono);font-weight:600;color:${lc};padding:3px 6px">${brls(s.lucro)}</span>
           </div>
-          <button onclick="del(${s.id})" style="background:none;border:1px solid var(--border2);border-radius:5px;cursor:pointer;color:var(--txt3);font-size:10px;padding:3px 9px;transition:all .15s;white-space:nowrap;margin-bottom:1px" onmouseover="this.style.color='var(--red)';this.style.borderColor='var(--red)'" onmouseout="this.style.color='var(--txt3)';this.style.borderColor='var(--border2)'">remover</button>
+          <div style="display:flex;flex-direction:column;gap:5px;margin-bottom:1px">
+            ${s.cancelada
+              ?`<button onclick="reativarSale(${s.id})" style="background:none;border:1px solid var(--border2);border-radius:5px;cursor:pointer;color:var(--green);font-size:10px;padding:3px 9px;transition:all .15s;white-space:nowrap" onmouseover="this.style.borderColor='var(--green)'" onmouseout="this.style.borderColor='var(--border2)'">↩ reativar</button>`
+              :`<button onclick="openCancelChoice(${s.id})" style="background:none;border:1px solid var(--border2);border-radius:5px;cursor:pointer;color:var(--txt3);font-size:10px;padding:3px 9px;transition:all .15s;white-space:nowrap" onmouseover="this.style.color='var(--yellow)';this.style.borderColor='var(--yellow)'" onmouseout="this.style.color='var(--txt3)';this.style.borderColor='var(--border2)'">cancelar</button>`
+            }
+            <button onclick="del(${s.id})" style="background:none;border:1px solid var(--border2);border-radius:5px;cursor:pointer;color:var(--txt3);font-size:10px;padding:3px 9px;transition:all .15s;white-space:nowrap" onmouseover="this.style.color='var(--red)';this.style.borderColor='var(--red)'" onmouseout="this.style.color='var(--txt3)';this.style.borderColor='var(--border2)'">remover</button>
+          </div>
         </div>
       </td>
     </tr>`;
@@ -5426,6 +5433,24 @@ async function mlAutoSync(silent=false){
   const existingIds=new Set(sales.filter(s=>s.mlOrderId).map(s=>String(s.mlOrderId)));
   const newOrders=allOrders.filter(o=>!existingIds.has(String(o.id)));
   if(_syncBtn){_syncBtn.disabled=false;_syncBtn.textContent='Sincronizar ML';}
+  // Auto-detecta cancelamentos do ML
+  (async()=>{
+    try{
+      const cancelUrl=`https://api.mercadolibre.com/orders/search?seller=${userId}&order.status=cancelled&order.date_last_updated.from=${encodeURIComponent(fromStr)}&limit=50`;
+      const cd=await mlFetch(cancelUrl);
+      if(cd&&cd.results&&cd.results.length){
+        let nc=0;
+        for(const o of cd.results){
+          const ex=sales.find(s=>!s.cancelada&&s.mlOrderId===String(o.id));
+          if(!ex)continue;
+          const idx=sales.indexOf(ex);
+          sales[idx]=calcSale({...ex,cancelada:true,reembolso:ex.preco});
+          nc++;
+        }
+        if(nc>0){saveLS();renderAll();_showUndoToast(`🚫 ${nc} venda${nc!==1?'s':''} cancelada${nc!==1?'s':''} detectada${nc!==1?'s':''} no ML`);}
+      }
+    }catch(e){}
+  })();
   if(!newOrders.length){if(!silent)_showUndoToast('✅ Tudo sincronizado — nenhuma venda nova');mlEnrichItemImages();return;}
   _pushUndo();
   let added=0;
