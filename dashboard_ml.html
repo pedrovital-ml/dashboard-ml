@@ -1766,6 +1766,15 @@ function _dedMensal(){
   const m=_activeMes();
   return _adsForMonth(m)+_meiForMonth(m);
 }
+function toggleCostsRow(id){
+  const row=document.getElementById('costs-row-'+id);
+  const btn=document.getElementById('costs-btn-'+id);
+  if(!row)return;
+  const open=row.style.display==='none'||!row.style.display;
+  row.style.display=open?'':'none';
+  if(btn)btn.style.color=open?'var(--green)':'var(--txt3)';
+}
+
 function renderAlertas(data){
   const sec=document.getElementById('alertas-section');
   if(!sec)return;
@@ -2029,10 +2038,8 @@ async function renderTable(){
       <td style="text-align:right;font-family:var(--mono);font-weight:500;color:${lc}">${brls(s.lucro)}</td>
       <td style="text-align:right"><span class="badge ${mc}">${pct(s.margem)}</span></td>
       <td style="width:1%;white-space:nowrap"><div class="row-actions">
-        <button class="edit-btn" onclick="cycleChannel(${s.id})" data-tip="${s.fullML?'Full ML → Flex':s.flex?'Flex → Agência':'Agência → Full ML'}" style="color:${s.fullML?'#00a650':s.flex?'#4499ff':'#9d7aff'}">
-          ${s.fullML
-            ?`<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="13,2 4,14 11,14 11,22 20,10 13,10"/></svg>`
-            :`<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 5v4h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>`}
+        <button class="edit-btn" id="costs-btn-${s.id}" onclick="toggleCostsRow(${s.id})" data-tip="Ver custos da venda" style="color:var(--txt3)">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
         </button>
         ${s.cancelada?`
         <button class="edit-btn reativar-btn" onclick="reativarSale(${s.id})" data-tip="Reativar venda">
@@ -2051,6 +2058,36 @@ async function renderTable(){
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
       </div></td>
+    </tr>
+    <tr id="costs-row-${s.id}" style="display:none">
+      <td colspan="11" style="padding:0 8px 8px 58px">
+        <div style="display:flex;gap:20px;background:var(--bg3);border-radius:8px;padding:10px 14px;border:1px solid var(--border1)">
+          <div style="display:flex;flex-direction:column;gap:2px;min-width:80px">
+            <span style="font-size:10px;color:var(--txt3);text-transform:uppercase;letter-spacing:.06em">Taxa ML</span>
+            <span style="font-size:12px;font-family:var(--mono);color:var(--txt2)">${brl(s.taxa_r)}</span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:2px;min-width:80px">
+            <span style="font-size:10px;color:var(--txt3);text-transform:uppercase;letter-spacing:.06em">Custo prod.</span>
+            <span style="font-size:12px;font-family:var(--mono);color:var(--txt2)">${brl(s.custo*s.qtd)}</span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:2px;min-width:80px">
+            <span style="font-size:10px;color:var(--txt3);text-transform:uppercase;letter-spacing:.06em">Frete</span>
+            <span style="font-size:12px;font-family:var(--mono);color:var(--txt2)">${brl(s.frete)}</span>
+          </div>
+          ${s.imposto_r>0?`<div style="display:flex;flex-direction:column;gap:2px;min-width:80px">
+            <span style="font-size:10px;color:var(--txt3);text-transform:uppercase;letter-spacing:.06em">Imposto</span>
+            <span style="font-size:12px;font-family:var(--mono);color:var(--txt2)">${brl(s.imposto_r)}</span>
+          </div>`:''}
+          ${s.ads>0?`<div style="display:flex;flex-direction:column;gap:2px;min-width:80px">
+            <span style="font-size:10px;color:var(--txt3);text-transform:uppercase;letter-spacing:.06em">ADS</span>
+            <span style="font-size:12px;font-family:var(--mono);color:#ff9500">${brl(s.ads)}</span>
+          </div>`:''}
+          <div style="display:flex;flex-direction:column;gap:2px;min-width:80px;margin-left:auto">
+            <span style="font-size:10px;color:var(--txt3);text-transform:uppercase;letter-spacing:.06em">Lucro líq.</span>
+            <span style="font-size:12px;font-family:var(--mono);font-weight:600;color:${lc}">${brls(s.lucro)}</span>
+          </div>
+        </div>
+      </td>
     </tr>`;
   }).join('');
 
