@@ -318,8 +318,24 @@ input[type=number]{-moz-appearance:textfield}
 .pb-tab{font-size:11px;padding:5px 16px;border-radius:20px;border:1px solid var(--border2);background:transparent;color:var(--txt2);cursor:pointer;font-family:var(--font);transition:all .15s}
 .pb-tab:hover{color:var(--txt);border-color:var(--border2)}
 .pb-tab.on{background:var(--greenbg);border-color:var(--green);color:var(--green);font-weight:600;box-shadow:0 0 10px rgba(0,232,150,.15)}
-.pb-list{padding:14px 16px;display:flex;flex-direction:column;gap:14px}
-.pb-item{display:flex;align-items:center;gap:14px}
+.pb-list{padding:10px 14px;display:flex;flex-direction:column;gap:6px;max-height:440px;overflow-y:auto}
+.pb-item{display:flex;align-items:center;gap:12px;cursor:pointer;padding:6px 8px;margin:0 -8px;border-radius:10px;transition:background .12s}
+.pb-item:hover{background:var(--bg4)}
+.pb-item.pb-active{background:rgba(0,232,150,.08);outline:1px solid rgba(0,232,150,.3)}
+.abc-badge{font-size:10px;font-weight:700;padding:1px 7px;border-radius:4px;font-family:var(--mono);flex-shrink:0}
+.abc-a{color:#00c87a;background:rgba(0,200,122,.12);border:1px solid rgba(0,200,122,.3)}
+.abc-b{color:#ffd028;background:rgba(255,208,40,.1);border:1px solid rgba(255,208,40,.3)}
+.abc-c{color:#ff4d6a;background:rgba(255,77,106,.1);border:1px solid rgba(255,77,106,.25)}
+.ads-invest-bar{display:flex;align-items:stretch;gap:0;background:var(--bg2);border:1px solid var(--border1);border-radius:14px;padding:14px 20px;margin-bottom:12px;overflow-x:auto}
+.ads-invest-col{display:flex;flex-direction:column;gap:3px;flex:1;min-width:80px;padding:0 16px;border-right:1px solid var(--border1)}
+.ads-invest-col:first-child{padding-left:0}
+.ads-invest-col:last-child{border-right:none}
+.ads-invest-lbl{font-size:10px;color:var(--txt3);font-weight:600;text-transform:uppercase;letter-spacing:.05em;white-space:nowrap}
+.ads-invest-val{font-size:17px;font-weight:800;font-family:var(--mono);white-space:nowrap}
+.pb-filter-bar{display:none;align-items:center;gap:8px;padding:7px 12px;background:rgba(0,232,150,.06);border:1px solid rgba(0,232,150,.25);border-radius:10px;margin-bottom:8px;font-size:12px}
+.pb-filter-chip{display:inline-flex;align-items:center;gap:6px;background:rgba(0,232,150,.15);border:1px solid rgba(0,232,150,.4);color:var(--green);border-radius:20px;padding:2px 10px;font-size:11px;font-weight:600;max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pb-filter-x{cursor:pointer;opacity:.55;font-size:13px;flex-shrink:0}
+.pb-filter-x:hover{opacity:1}
 .pb-circ{position:relative;flex-shrink:0;width:64px;height:64px;display:flex;align-items:center;justify-content:center}
 .pb-pct{position:absolute;font-size:11.5px;font-weight:700;font-family:var(--mono);color:var(--txt)}
 .pb-img{width:46px;height:46px;border-radius:9px;border:1px solid var(--border2);overflow:hidden;flex-shrink:0;background:var(--bg4);display:flex;align-items:center;justify-content:center;font-size:19px;position:relative}
@@ -731,14 +747,17 @@ thead tr{background:linear-gradient(90deg,rgba(68,153,255,.04),rgba(160,112,255,
     <div class="kpi-row r4" id="kpi-top"></div>
     <!-- KPI BOT -->
     <div class="kpi-row r5" id="kpi-bot"></div>
+    <!-- ADS INVESTIMENTO -->
+    <div id="ads-invest-bar" style="display:none"></div>
 
     <!-- CHART -->
     <div class="chart-card">
       <div class="ct-tabs">
-        <button class="ct-tab on" onclick="setChartTab('fat',this)" data-tip="Gráfico de faturamento por dia">Faturamento</button>
-        <button class="ct-tab" onclick="setChartTab('lucro',this)" data-tip="Gráfico de lucro por dia">Lucro</button>
-        <button class="ct-tab" onclick="setChartTab('vendas',this)" data-tip="Gráfico de unidades vendidas por dia">Vendas</button>
-        <button class="ct-tab" onclick="setChartTab('cancel',this)" data-tip="Gráfico de cancelamentos por dia">Canceladas</button>
+        <button class="ct-tab on" onclick="setChartTab('fat',this)">Faturamento</button>
+        <button class="ct-tab" onclick="setChartTab('lucro',this)">Lucro</button>
+        <button class="ct-tab" onclick="setChartTab('vendas',this)">Vendas</button>
+        <button class="ct-tab" onclick="setChartTab('cancel',this)">Canceladas</button>
+        <button class="ct-tab" onclick="setChartTab('devolvidas',this)">Devolvidas</button>
       </div>
       <div style="position:relative;height:210px"><canvas id="chart-main"></canvas></div>
     </div>
@@ -746,16 +765,23 @@ thead tr{background:linear-gradient(90deg,rgba(68,153,255,.04),rgba(160,112,255,
     <!-- PRODUCT BREAKDOWN -->
     <div class="prod-break-card">
       <div class="pb-tabs">
-        <button class="pb-tab on" onclick="setPbTab('fat',this)" data-tip="Ranking por faturamento">Faturamento</button>
-        <button class="pb-tab" onclick="setPbTab('lucro',this)" data-tip="Ranking por lucro líquido">Lucro</button>
-        <button class="pb-tab" onclick="setPbTab('vendas',this)" data-tip="Ranking por unidades vendidas">Vendas</button>
-        <button class="pb-tab" onclick="setPbTab('cancel',this)" data-tip="Vendas canceladas">Canceladas</button>
+        <button class="pb-tab on" onclick="setPbTab('fat',this)">Faturamento</button>
+        <button class="pb-tab" onclick="setPbTab('lucro',this)">Lucro</button>
+        <button class="pb-tab" onclick="setPbTab('vendas',this)">Vendas</button>
+        <button class="pb-tab" onclick="setPbTab('cancel',this)">Canceladas</button>
+        <button class="pb-tab" onclick="setPbTab('devolvidas',this)">Devolvidas</button>
+        <span style="color:var(--border2);padding:0 2px;font-size:14px;align-self:center;user-select:none">|</span>
+        <button class="pb-tab" onclick="setPbTab('logistica',this)">Logística</button>
+        <button class="pb-tab" onclick="setPbTab('abc',this)">Curva ABC</button>
       </div>
       <div id="pb-list" class="pb-list"></div>
     </div>
 
     <!-- ALERTAS -->
     <div id="alertas-section" style="display:none;flex-direction:column;gap:10px;margin-bottom:4px"></div>
+
+    <!-- FILTER BAR -->
+    <div id="pb-filter-bar" class="pb-filter-bar"></div>
 
     <!-- TABLE -->
     <div class="tbl-card">
@@ -1927,6 +1953,35 @@ function renderKPIs(data){
     (function(){const _tax4=d.reduce((a,s)=>a+(s.imposto_r||0),0);const _oldMs=new Set(d.filter(s=>(s.data||'').slice(0,7)>=MEI_START&&(s.data||'').slice(0,7)<MEI_CUTOFF).map(s=>(s.data||'').slice(0,7)));const _mei=_oldMs.size*MEI_MENSAL;const _tot=_tax4+_mei;const _sub=_mei>0&&_tax4>0?'MEI+4% do fat.':_mei>0?'DAS MEI mensal':fat>0?'('+pct(_tot/fat*100)+') 4% do fat.':'4% do faturamento';return kcard(icoImposto,'Impostos',brl(_tot),_sub,'var(--blue)','var(--bluebg)');})();
   set('k-receita',brl(fat));
   set('k-ads-v',n);
+  // Investimento em ADS bar
+  (function(){
+    const bar=document.getElementById('ads-invest-bar');
+    if(!bar)return;
+    const _isTudo=activePeriod==='tudo';
+    const _ag=_isTudo?_totalAdsGasto():_adsForMonth(_activeMes());
+    const _ar=_isTudo?_totalAdsReceita():_adsReceitaForMonth(_activeMes());
+    if(!_ag&&!_ar){bar.style.display='none';return;}
+    const _roas=_ag>0?_ar/_ag:0;
+    const _acos=_ar>0?(_ag/_ar*100):0;
+    const _tacos=fat>0?(_ag/fat*100):0;
+    // Cliques e Vendas ADS do _mlAdsData (mês atual)
+    let _cliques=0,_vendasAds=0;
+    if(_mlAdsData){
+      const rows=Array.isArray(_mlAdsData)?_mlAdsData:_mlAdsData?.results||[];
+      _cliques=rows.reduce((s,r)=>s+(r.clicks||0),0);
+      _vendasAds=rows.reduce((s,r)=>s+(r.conversions||r.orders||r.direct_sales||0),0);
+    }
+    const col=(v,lbl,val,clr)=>`<div class="ads-invest-col"><div class="ads-invest-lbl">${lbl}</div><div class="ads-invest-val" style="color:${clr||'var(--txt1)'}">${val}</div></div>`;
+    bar.style.display='flex';
+    bar.innerHTML=
+      col(0,'Investimento',brl(_ag),'#ff9500')+
+      col(1,'Receita ADS',brl(_ar),'var(--green)')+
+      col(2,'ROAS',_roas>0?_roas.toFixed(2)+'x':'—','var(--purple)')+
+      col(3,'ACOS',_acos>0?_acos.toFixed(1)+'%':'—',_acos>50?'var(--red)':_acos>30?'var(--yellow)':'var(--green)')+
+      col(4,'TACOS',_tacos>0?_tacos.toFixed(1)+'%':'—',_tacos>10?'var(--red)':_tacos>5?'var(--yellow)':'var(--green)')+
+      col(5,'Vendas ADS',_vendasAds||'—','var(--blue)')+
+      col(6,'Cliques',_cliques>0?_cliques.toLocaleString('pt-BR'):'—','var(--txt2)');
+  })();
 }
 
 let chartTab='fat';
@@ -1943,10 +1998,10 @@ function renderChart(data){
   const byD={};
   [...data].sort((a,b)=>a.data.localeCompare(b.data)).forEach(s=>{
     const key=groupByMonth?s.data.slice(0,7):s.data;
-    if(!byD[key])byD[key]={l:0,f:0,v:0};
-    byD[key].l+=s.lucro;
-    byD[key].f+=s.preco;
-    byD[key].v+=s.qtd;
+    if(!byD[key])byD[key]={l:0,f:0,v:0,canc:0,devol:0};
+    if(!s.cancelada){byD[key].l+=s.lucro;byD[key].f+=s.preco;byD[key].v+=s.qtd;}
+    if(s.cancelada&&!s.devolvida)byD[key].canc+=s.qtd;
+    if(s.devolvida)byD[key].devol+=s.qtd;
   });
   const fromVal=document.getElementById('dt-from').value;
   const toVal=document.getElementById('dt-to').value;
@@ -1979,8 +2034,11 @@ function renderChart(data){
     vals=keys.map(k=>(byD[k]||empty).v);
     color='#9d7aff';lbl='Vendas';fmtTip=(v)=>v+' un.';
   } else if(chartTab==='cancel'){
-    vals=keys.map(()=>0);
-    color='#ff4d6a';lbl='Canceladas';fmtTip=(v)=>v;
+    vals=keys.map(k=>(byD[k]||empty).canc);
+    color='#ff4d6a';lbl='Canceladas';fmtTip=(v)=>v+' un.';
+  } else if(chartTab==='devolvidas'){
+    vals=keys.map(k=>(byD[k]||empty).devol);
+    color='#ff7eb3';lbl='Devolvidas';fmtTip=(v)=>v+' un.';
   } else {
     vals=keys.map(k=>+((byD[k]||empty).f).toFixed(2));
     color='#4d9fff';lbl='Faturamento';fmtTip=(v)=>brl(v);
@@ -2030,6 +2088,7 @@ async function renderTable(){
   const f=document.getElementById('dt-from').value;
   const t=document.getElementById('dt-to').value;
   let rows=[...sales].filter(s=>(!f||s.data>=f)&&(!t||s.data<=t));
+  if(_pbProdFilter)rows=rows.filter(s=>s.prod===_pbProdFilter);
   if(q)rows=rows.filter(s=>(s.prod+' '+(s.cor||'')).toLowerCase().includes(q));
   const sortFns={
     titulo:(a,b)=>(a.prod+(a.cor||'')).localeCompare(b.prod+(b.cor||''),'pt-BR'),
@@ -2067,8 +2126,11 @@ async function renderTable(){
       <td style="text-align:right"><span class="badge ${mc}">${pct(s.margem)}</span></td>
     </tr>
     <tr id="costs-row-${s.id}" style="display:none">
-      <td colspan="10" style="padding:0 8px 8px 58px">
-        <div style="display:flex;gap:20px;align-items:flex-end;background:var(--bg3);border-radius:8px;padding:10px 14px;border:1px solid var(--border1)">
+      <td colspan="10" style="padding:0 8px 8px 0">
+        <div onclick="toggleCostsRow(${s.id})" style="text-align:center;cursor:pointer;padding:5px 0;color:var(--txt3);font-size:12px;font-weight:500;letter-spacing:.01em;user-select:none;border-bottom:1px solid var(--border1);margin-bottom:8px;transition:color .15s" onmouseover="this.style.color='var(--txt)'" onmouseout="this.style.color='var(--txt3)'">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="vertical-align:middle;margin-right:4px"><polyline points="18 15 12 9 6 15"/></svg>Fechar detalhes
+        </div>
+        <div style="display:flex;gap:20px;align-items:flex-end;background:var(--bg3);border-radius:8px;padding:10px 14px;border:1px solid var(--border1);margin-left:58px">
           <div style="display:flex;flex-direction:column;gap:3px">
             <span style="font-size:10px;color:var(--txt3);text-transform:uppercase;letter-spacing:.06em">Taxa ML</span>
             <span style="font-size:12px;font-family:var(--mono);color:var(--txt2);padding:3px 6px">${brl(s.taxa_r)}</span>
@@ -2670,49 +2732,134 @@ function nvEstPickItem(custo,produto,status){
 
 /* ── PRODUCT BREAKDOWN ── */
 let pbTab='fat';
+let _pbProdFilter=null;
 function setPbTab(t,el){
   document.querySelectorAll('.pb-tab').forEach(x=>x.classList.remove('on'));
   el.classList.add('on');
   pbTab=t;
   renderTopProducts(getFiltered());
 }
+function filterByProduct(nome){
+  _pbProdFilter=(_pbProdFilter===nome)?null:nome;
+  renderTable();
+  renderTopProducts(getFiltered());
+  _renderPbFilterBar();
+}
+function clearPbFilter(){
+  _pbProdFilter=null;
+  renderTable();
+  renderTopProducts(getFiltered());
+  _renderPbFilterBar();
+}
+function _renderPbFilterBar(){
+  const bar=document.getElementById('pb-filter-bar');
+  if(!bar)return;
+  if(_pbProdFilter){
+    bar.style.display='flex';
+    bar.innerHTML=`<span style="color:var(--txt3);font-size:11px;white-space:nowrap">Filtrando por:</span>
+      <span class="pb-filter-chip">🏷️ ${_pbProdFilter}<span class="pb-filter-x" onclick="clearPbFilter()" data-tip="Limpar filtro"> ✕</span></span>
+      <span style="flex:1"></span>
+      <button onclick="clearPbFilter()" style="font-size:11px;color:var(--green);background:none;border:none;cursor:pointer;padding:0;font-weight:600;white-space:nowrap">Ver todas ×</button>`;
+  }else{bar.style.display='none';}
+}
 async function renderTopProducts(data){
-  const src=pbTab==='cancel'?data.filter(s=>s.cancelada):data;
+  const list=document.getElementById('pb-list');
+  if(!list)return;
+  const svgEdit=`<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
+  // === LOGÍSTICA ===
+  if(pbTab==='logistica'){
+    const src=data.filter(s=>!s.cancelada);
+    const full=src.filter(s=>s.fullML);
+    const flex=src.filter(s=>!s.fullML&&s.flex);
+    const agencia=src.filter(s=>!s.fullML&&!s.flex);
+    const totalFat=src.reduce((a,s)=>a+s.preco,0);
+    const rows=[
+      {lbl:'Full ML',color:'#00a650',items:full},
+      {lbl:'Flex',color:'#4499ff',items:flex},
+      {lbl:'Agência',color:'#9d7aff',items:agencia},
+    ];
+    list.innerHTML=rows.map(r=>{
+      const fat=r.items.reduce((a,s)=>a+s.preco,0);
+      const n=r.items.length;
+      const p=totalFat>0?+(fat/totalFat*100).toFixed(1):0;
+      return`<div class="pb-item" style="cursor:default;gap:16px">
+        <div style="width:10px;height:10px;border-radius:50%;background:${r.color};flex-shrink:0"></div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:12px;font-weight:600;color:var(--txt)">${r.lbl}</div>
+          <div style="height:4px;border-radius:2px;background:var(--bg4);margin-top:5px;overflow:hidden"><div style="height:100%;width:${p}%;background:${r.color};border-radius:2px;transition:width .4s"></div></div>
+        </div>
+        <div style="font-family:var(--mono);font-size:12px;font-weight:600;color:${r.color};min-width:50px;text-align:right">${n} un.</div>
+        <span class="pb-val" style="min-width:90px;text-align:right">${brl(fat)}</span>
+        <span style="font-size:11px;color:var(--txt3);min-width:38px;text-align:right">${p}%</span>
+      </div>`;
+    }).join('');
+    return;
+  }
+  // === CURVA ABC ===
+  if(pbTab==='abc'){
+    const src=data.filter(s=>!s.cancelada);
+    const byP={};
+    src.forEach(s=>{if(!byP[s.prod])byP[s.prod]=0;byP[s.prod]+=s.preco;});
+    const sorted=Object.entries(byP).sort((a,b)=>b[1]-a[1]);
+    const totalFat=sorted.reduce((a,[,v])=>a+v,0);
+    let acc=0;
+    list.innerHTML=sorted.map(([nome,fat])=>{
+      acc+=fat;
+      const cumPct=totalFat>0?acc/totalFat*100:0;
+      const cls=cumPct<=80?'abc-a':cumPct<=95?'abc-b':'abc-c';
+      const lbl=cumPct<=80?'A':cumPct<=95?'B':'C';
+      const p=totalFat>0?+(fat/totalFat*100).toFixed(1):0;
+      const cached=imgCache[nome.toLowerCase().trim()]||(sales.find(s=>s.prod===nome&&s.mlImage)||{}).mlImage||'';
+      const imgHtml=cached?`<img src="${cached}" alt="${nome}" onerror="this.parentNode.innerHTML='📦'">` : '📦';
+      const enc=encodeURIComponent(nome);
+      const isActive=_pbProdFilter===nome;
+      return`<div class="pb-item${isActive?' pb-active':''}" onclick="filterByProduct(decodeURIComponent('${enc}'))">
+        <span class="abc-badge ${cls}">${lbl}</span>
+        <div class="pb-img">${imgHtml}<button class="img-edit-btn" onclick="event.stopPropagation();editImg(decodeURIComponent('${enc}'))" data-tip="Alterar imagem">${svgEdit}</button></div>
+        <div class="pb-info"><span class="pb-name">${nome}</span><div style="height:3px;border-radius:2px;background:var(--bg4);margin-top:4px;overflow:hidden"><div style="height:100%;width:${p}%;background:var(--green);border-radius:2px"></div></div></div>
+        <div style="text-align:right;flex-shrink:0"><span class="pb-val">${brl(fat)}</span><div style="font-size:10px;color:var(--txt3)">${p}%</div></div>
+      </div>`;
+    }).join('');
+    if(!sorted.length)list.innerHTML='<div style="padding:16px;text-align:center;color:var(--txt3);font-size:12px">Nenhuma venda no período.</div>';
+    return;
+  }
+  // === TABS PADRÃO (fat / lucro / vendas / cancel / devolvidas) ===
+  const isCancel=pbTab==='cancel';
+  const isDevol=pbTab==='devolvidas';
+  const src=isCancel?data.filter(s=>s.cancelada&&!s.devolvida):isDevol?data.filter(s=>s.devolvida):data.filter(s=>!s.cancelada);
   const byP={};
   src.forEach(s=>{
-    if(!byP[s.prod])byP[s.prod]={fat:0,lucro:0,vendas:0,cancel:0};
+    if(!byP[s.prod])byP[s.prod]={fat:0,lucro:0,vendas:0};
     byP[s.prod].fat+=s.preco;
     byP[s.prod].lucro+=s.lucro;
     byP[s.prod].vendas+=s.qtd;
-    byP[s.prod].cancel+=s.qtd;
   });
-  const key=pbTab==='lucro'?'lucro':pbTab==='vendas'?'vendas':pbTab==='cancel'?'cancel':'fat';
+  const key=pbTab==='lucro'?'lucro':pbTab==='vendas'?'vendas':'fat';
   const prods=Object.entries(byP).sort((a,b)=>b[1][key]-a[1][key]);
   const total=prods.reduce((s,[,v])=>s+(v[key]>0?v[key]:0),0);
-  const top=prods.slice(0,4);
-  const list=document.getElementById('pb-list');
-  if(!list)return;
-  if(!top.length){list.innerHTML='<div style="padding:16px;text-align:center;color:var(--txt3);font-size:12px">Nenhum cancelamento no período.</div>';return;}
-  const color=pbTab==='lucro'?'#00d68f':pbTab==='vendas'?'#9d7aff':pbTab==='cancel'?'#ff4d6a':'#00d68f';
-  list.innerHTML=top.map(([nome,v])=>{
+  const color=pbTab==='lucro'?'#00d68f':pbTab==='vendas'?'#9d7aff':(isCancel||isDevol)?'#ff4d6a':'#00d68f';
+  if(!prods.length){
+    list.innerHTML=`<div style="padding:16px;text-align:center;color:var(--txt3);font-size:12px">Nenhum registro no período.</div>`;
+    return;
+  }
+  list.innerHTML=prods.map(([nome,v])=>{
     const val=v[key];
     const p=total>0?Math.max(0,+(val/total*100).toFixed(1)):0;
-    const dash=p;const gap=100-p;
-    const display=(pbTab==='vendas'||pbTab==='cancel')?val+' un.':brls(val);
+    const display=pbTab==='vendas'?val+' un.':brls(val);
     const cached=imgCache[nome.toLowerCase().trim()]||(sales.find(s=>s.prod===nome&&s.mlImage)||{}).mlImage||'';
     const imgHtml=cached?`<img src="${cached}" alt="${nome}" onerror="this.parentNode.innerHTML='📦'">` : '📦';
     const enc=encodeURIComponent(nome);
-    const editBtn=`<button class="img-edit-btn" onclick="editImg(decodeURIComponent('${enc}'))" data-tip="Alterar imagem"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>`;
-    return`<div class="pb-item">
-      <div class="pb-circ">
-        <svg viewBox="0 0 36 36" width="64" height="64">
-          <circle cx="18" cy="18" r="15.9" fill="none" stroke="var(--bg4)" stroke-width="2.8"/>
-          <circle cx="18" cy="18" r="15.9" fill="none" stroke="${color}" stroke-width="2.8"
-                  stroke-dasharray="${dash} ${gap}" stroke-dashoffset="25" stroke-linecap="round"/>
+    const isActive=_pbProdFilter===nome;
+    return`<div class="pb-item${isActive?' pb-active':''}" onclick="filterByProduct(decodeURIComponent('${enc}'))">
+      <div class="pb-circ" style="width:44px;height:44px;flex-shrink:0">
+        <svg viewBox="0 0 36 36" width="44" height="44">
+          <circle cx="18" cy="18" r="15.9" fill="none" stroke="var(--bg4)" stroke-width="3"/>
+          <circle cx="18" cy="18" r="15.9" fill="none" stroke="${color}" stroke-width="3"
+                  stroke-dasharray="${p} ${100-p}" stroke-dashoffset="25" stroke-linecap="round"/>
         </svg>
-        <div class="pb-pct">${p}%</div>
+        <div class="pb-pct" style="font-size:9.5px">${p}%</div>
       </div>
-      <div class="pb-img">${imgHtml}${editBtn}</div>
+      <div class="pb-img">${imgHtml}<button class="img-edit-btn" onclick="event.stopPropagation();editImg(decodeURIComponent('${enc}'))" data-tip="Alterar imagem">${svgEdit}</button></div>
       <div class="pb-info"><span class="pb-name">${nome}</span></div>
       <span class="pb-val">${display}</span>
     </div>`;
@@ -5485,10 +5632,12 @@ async function mlAutoSync(silent=false){
     if(!allCancelled.length)return;
     let nc=0;
     for(const o of allCancelled){
+      const isDevolvida=['money_returned','money_to_be_returned','partially_refunded'].includes(o.status);
       const ex=sales.find(s=>s.mlOrderId===String(o.id));
       if(ex){
-        // Já existe — marca como cancelada se ainda não estava
-        if(!ex.cancelada){const idx=sales.indexOf(ex);sales[idx]=calcSale({...ex,cancelada:true,reembolso:ex.preco});nc++;}
+        // Já existe — marca como cancelada se ainda não estava, ou atualiza devolvida
+        const needsUpdate=!ex.cancelada||ex.devolvida!==isDevolvida;
+        if(needsUpdate){const idx=sales.indexOf(ex);sales[idx]=calcSale({...ex,cancelada:true,reembolso:ex.preco,devolvida:isDevolvida});nc++;}
       } else {
         // Não existe no ERP — adiciona como venda cancelada
         const item=o.order_items?.[0];if(!item)continue;
@@ -5506,7 +5655,7 @@ async function mlAutoSync(silent=false){
         const mlSku=item.item?.seller_custom_field||'';
         const match=_mlMatchProd(mlTitle);
         const prod=match?match.produto:mlTitle;
-        sales.push(calcSale({id:nid++,data:data_v,prod,cor:'',qtd,preco,custo:0,custos:[0],frete:0,taxa:taxa_pct,desconto:0,ads:0,fullML:isFull,flex:isFlex,cancelada:true,reembolso:preco,mlOrderId:String(o.id),mlItemId,mlTitle,mlImage,mlSku}));
+        sales.push(calcSale({id:nid++,data:data_v,prod,cor:'',qtd,preco,custo:0,custos:[0],frete:0,taxa:taxa_pct,desconto:0,ads:0,fullML:isFull,flex:isFlex,cancelada:true,devolvida:isDevolvida,reembolso:preco,mlOrderId:String(o.id),mlItemId,mlTitle,mlImage,mlSku}));
         nc++;
       }
     }
@@ -5640,14 +5789,14 @@ async function mlSyncAds(){
     if(report&&!report.error){
       _mlAdsData=report;
       localStorage.setItem('ml_ads_api_data',JSON.stringify({data:report,updated:new Date().toISOString()}));
-      renderAdsTab({data:report});
+      renderAdsTab({data:report});renderKPIs(getFiltered());
     } else {
       // Tentar endpoint alternativo
       const rep2=await mlFetch(`https://api.mercadolibre.com/product_ads/reports?seller_id=${userId}&date_from=${from}&date_to=${to}`);
       if(rep2&&!rep2.error){
         _mlAdsData=rep2;
         localStorage.setItem('ml_ads_api_data',JSON.stringify({data:rep2,updated:new Date().toISOString()}));
-        renderAdsTab({data:rep2});
+        renderAdsTab({data:rep2});renderKPIs(getFiltered());
       } else {
         console.warn('[ADS] Endpoints retornaram erro:',report?.error,rep2?.error);
         renderAdsTab({noAccess:true,error:report?.message||rep2?.message});
