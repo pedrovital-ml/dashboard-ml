@@ -1474,6 +1474,10 @@ function _adsReceitaForMonth(m){return adsReceitaByMonth[m]||0;}
 function _adsRoasForMonth(m){const g=_adsForMonth(m);return g>0?_adsReceitaForMonth(m)/g:0;}
 function _totalAdsGasto(){return Object.values(adsGastoByMonth).reduce((a,v)=>a+(v||0),0);}
 function _totalAdsReceita(){return Object.values(adsReceitaByMonth).reduce((a,v)=>a+(v||0),0);}
+// Cliques ADS por mês (persistido da API)
+let adsCliquesByMonth=(()=>{try{return JSON.parse(localStorage.getItem('ml_ads_cliques_v1'))||{};}catch(e){return{};}})();
+function _adsCliquesForMonth(m){return adsCliquesByMonth[m]||0;}
+function _totalAdsCliques(){return Object.values(adsCliquesByMonth).reduce((a,v)=>a+(v||0),0);}
 // Compatibilidade
 let adsGasto=0;
 let eid=1;
@@ -1971,16 +1975,18 @@ function renderKPIs(data){
     const _isTudo=activePeriod==='tudo';
     const _ag=_isTudo?_totalAdsGasto():_adsForMonth(_activeMes());
     const _ar=_isTudo?_totalAdsReceita():_adsReceitaForMonth(_activeMes());
-    if(!_ag&&!_ar){bar.style.display='none';return;}
-    const _roas=_ag>0?_ar/_ag:0;
+    const _cliqPersist=_isTudo?_totalAdsCliques():_adsCliquesForMonth(_activeMes());
+    if(!_ag&&!_ar&&!_cliqPersist){bar.style.display='none';return;}
+    const _roas=_ag>0&&_ar>0?_ar/_ag:0;
     const _acos=_ar>0?(_ag/_ar*100):0;
-    const _tacos=fat>0?(_ag/fat*100):0;
-    // Cliques e Vendas ADS do _mlAdsData (mês atual)
-    let _cliques=0,_vendasAds=0;
+    const _tacos=fat>0&&_ag>0?(_ag/fat*100):0;
+    // Cliques e Vendas ADS — usa persistido ou _mlAdsData em memória
+    let _cliques=_cliqPersist,_vendasAds=0;
     if(_mlAdsData){
       const rows=Array.isArray(_mlAdsData)?_mlAdsData:_mlAdsData?.results||[];
-      _cliques=rows.reduce((s,r)=>s+(r.clicks||0),0);
-      _vendasAds=rows.reduce((s,r)=>s+(r.conversions||r.orders||r.direct_sales||0),0);
+      const cFromApi=rows.reduce((s,r)=>s+(r.clicks||0),0);
+      if(cFromApi>0)_cliques=cFromApi;
+      _vendasAds=rows.reduce((s,r)=>s+(r.conversions||r.orders||r.direct_sales||r.direct_orders||0),0);
     }
     const col=(v,lbl,val,clr)=>`<div class="ads-invest-col"><div class="ads-invest-lbl">${lbl}</div><div class="ads-invest-val" style="color:${clr||'var(--txt1)'}">${val}</div></div>`;
     bar.style.display='flex';
@@ -5634,6 +5640,18 @@ async function mlAutoSync(silent=false){
   const existingIds=new Set(sales.filter(s=>s.mlOrderId).map(s=>String(s.mlOrderId)));
   const newOrders=allOrders.filter(o=>!existingIds.has(String(o.id)));
   if(_syncBtn){_syncBtn.disabled=false;_syncBtn.textContent='Sincronizar ML';}
+  // Atualiza fullML/flex para ordens já no ERP com base nos dados mais recentes da API
+  let logFixed=0;
+  for(const o of allOrders){
+    const ex=sales.find(s=>s.mlOrderId===String(o.id)&&!s.cancelada);
+    if(!ex)continue;
+    const _tags=Array.isArray(o.tags)?o.tags:[];
+    const _logistic=o.shipping?.logistic_type||'';
+    const isFull=!!(o.fulfillment||_logistic==='fulfillment'||_tags.some(t=>['fulfillment','meli_fulfillment','fulfillment_ml','meli_fulfillment_in'].includes(t)));
+    const isFlex=!isFull&&!!(_logistic==='self_service'||_logistic==='flex'||_tags.some(t=>['flex','logistic_flex','mshops_flex'].includes(t)));
+    if(ex.fullML!==isFull||ex.flex!==isFlex){const idx=sales.indexOf(ex);sales[idx]={...ex,fullML:isFull,flex:isFlex};logFixed++;}
+  }
+  if(logFixed>0){saveLS();}
   // Auto-detecta cancelamentos/devoluções do ML (todos os status negativos)
   // Busca sempre os últimos 90 dias para pegar money_returned antigos
   (async()=>{
@@ -5678,7 +5696,7 @@ async function mlAutoSync(silent=false){
     }
     if(nc>0){saveLS();renderAll();_showUndoToast(`🚫 ${nc} venda${nc!==1?'s':''} cancelada${nc!==1?'s':''} detectada${nc!==1?'s':''} no ML`);}
   })();
-  if(!newOrders.length){if(!silent)_showUndoToast('✅ Tudo sincronizado — nenhuma venda nova');mlEnrichItemImages();return;}
+  if(!newOrders.length){if(!silent)_showUndoToast('✅ Tudo sincronizado — nenhuma venda nova');mlEnrichItemImages();mlSyncAds();mlBackfillFrete();mlBackfillLogistica();return;}
   _pushUndo();
   let added=0;
   for(const o of newOrders){
@@ -5726,6 +5744,40 @@ async function mlAutoSync(silent=false){
   mlEnrichItemImages();
   mlSyncAds();
   mlBackfillFrete();
+  mlBackfillLogistica();
+}
+
+async function mlBackfillLogistica(){
+  const userId=mlUser();if(!userId)return;
+  const toFix=sales.filter(s=>s.mlOrderId&&!s.cancelada);
+  if(!toFix.length)return;
+  const toFixMap=new Map(toFix.map(s=>[String(s.mlOrderId),s]));
+  let fixed=0,offset=0,found=0;
+  while(found<toFix.length){
+    try{
+      const d=await mlFetch(`https://api.mercadolibre.com/orders/search?seller=${userId}&order.status=paid&sort=date_desc&limit=50&offset=${offset}`);
+      if(!d||d.error||!d.results||!d.results.length)break;
+      for(const o of d.results){
+        const ex=toFixMap.get(String(o.id));
+        if(!ex)continue;
+        found++;
+        const _tags=Array.isArray(o.tags)?o.tags:[];
+        const _logistic=o.shipping?.logistic_type||'';
+        const isFull=!!(o.fulfillment||_logistic==='fulfillment'||_tags.some(t=>['fulfillment','meli_fulfillment','fulfillment_ml','meli_fulfillment_in'].includes(t)));
+        const isFlex=!isFull&&!!(_logistic==='self_service'||_logistic==='flex'||_tags.some(t=>['flex','logistic_flex','mshops_flex'].includes(t)));
+        if(ex.fullML!==isFull||ex.flex!==isFlex){
+          const idx=sales.indexOf(ex);
+          sales[idx]={...ex,fullML:isFull,flex:isFlex};
+          fixed++;
+        }
+      }
+      if(d.results.length<50)break;
+      offset+=50;
+      if(offset>1000)break;
+    }catch(e){break;}
+  }
+  if(fixed>0){saveLS();renderAll();_showUndoToast(`🚚 Logística corrigida em ${fixed} venda${fixed!==1?'s':''}`);}
+  return fixed;
 }
 
 async function mlBackfillFrete(){
@@ -5837,6 +5889,12 @@ function renderAdsTab(result){
   const totalGasto=rows.reduce((s,r)=>s+(r.cost||r.total_amount||r.spend||0),0);
   const totalCliques=rows.reduce((s,r)=>s+(r.clicks||0),0);
   const totalImpress=rows.reduce((s,r)=>s+(r.impressions||0),0);
+  const totalReceita=rows.reduce((s,r)=>s+(r.total_revenue||r.direct_revenue||r.revenue||r.attributed_revenue||0),0);
+  // Persistir dados da API para o mês atual
+  const _adsMes=new Date().toISOString().slice(0,7);
+  if(totalGasto>0){adsGastoByMonth[_adsMes]=+totalGasto.toFixed(2);localStorage.setItem('ml_ads_v2',JSON.stringify(adsGastoByMonth));}
+  if(totalReceita>0){adsReceitaByMonth[_adsMes]=+totalReceita.toFixed(2);localStorage.setItem('ml_ads_receita_v1',JSON.stringify(adsReceitaByMonth));}
+  if(totalCliques>0){adsCliquesByMonth[_adsMes]=totalCliques;localStorage.setItem('ml_ads_cliques_v1',JSON.stringify(adsCliquesByMonth));}
   el.innerHTML=`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px">
     <div style="background:var(--bg2);border:1px solid var(--border1);border-radius:12px;padding:16px">
       <div style="font-size:11px;color:var(--txt3);font-weight:600;text-transform:uppercase;margin-bottom:4px">Gasto este mês</div>
