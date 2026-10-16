@@ -330,7 +330,7 @@ input[type=number]{-moz-appearance:textfield}
 .pb-card-img img{width:100%;height:100%;object-fit:cover}
 .pb-card-body{flex:1;min-width:0}
 .pb-card-name{font-size:11px;color:var(--txt);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:3px}
-.pb-card-val{font-size:12px;font-weight:700;font-family:var(--mono);color:var(--txt);margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pb-card-val{font-size:11.5px;font-weight:700;font-family:var(--mono);color:var(--txt);white-space:nowrap}
 .pb-card-bar{height:2px;border-radius:2px;background:var(--bg4);overflow:hidden;margin-bottom:2px}
 .pb-card-bar-fill{height:100%;border-radius:2px;transition:width .4s}
 .pb-card-pct{font-size:9.5px;color:var(--txt3);font-weight:600;font-family:var(--mono)}
@@ -2835,9 +2835,9 @@ async function renderTopProducts(data){
       return`<div class="pb-card${isActive?' pb-active':''}" onclick="filterByProduct(decodeURIComponent('${enc}'))">
         <div class="pb-card-img" style="position:relative">${imgHtml}<span class="abc-badge ${cls}" style="position:absolute;bottom:2px;right:2px;padding:0 4px;font-size:9px">${abcLbl}</span><button class="img-edit-btn" onclick="event.stopPropagation();editImg(decodeURIComponent('${enc}'))" data-tip="Alterar imagem">${svgEdit}</button></div>
         <div class="pb-card-body">
-          <div style="display:flex;align-items:baseline;gap:6px;margin-bottom:3px">
-            <span class="pb-card-name" style="flex:1">${nome}</span>
-            <span class="pb-card-val">${brl(fat)}</span>
+          <div style="display:flex;align-items:baseline;gap:4px;margin-bottom:3px;min-width:0">
+            <span class="pb-card-name" style="flex:1;min-width:0">${nome}</span>
+            <span class="pb-card-val" style="flex-shrink:0">${brl(fat)}</span>
           </div>
           <div class="pb-card-bar"><div class="pb-card-bar-fill" style="width:${p}%;background:${abcColor}"></div></div>
           <div class="pb-card-pct">${p}%</div>
@@ -2881,9 +2881,9 @@ async function renderTopProducts(data){
     return`<div class="pb-card${isActive?' pb-active':''}" onclick="filterByProduct(decodeURIComponent('${enc}'))">
       <div class="pb-card-img">${imgHtml}<button class="img-edit-btn" onclick="event.stopPropagation();editImg(decodeURIComponent('${enc}'))" data-tip="Alterar imagem">${svgEdit}</button></div>
       <div class="pb-card-body">
-        <div style="display:flex;align-items:baseline;gap:6px;margin-bottom:3px">
-          <span class="pb-card-name" style="flex:1">${nome}</span>
-          <span class="pb-card-val">${display}</span>
+        <div style="display:flex;align-items:baseline;gap:4px;margin-bottom:3px;min-width:0">
+          <span class="pb-card-name" style="flex:1;min-width:0">${nome}</span>
+          <span class="pb-card-val" style="flex-shrink:0">${display}</span>
         </div>
         <div class="pb-card-bar"><div class="pb-card-bar-fill" style="width:${p}%;background:${barColor}"></div></div>
         <div class="pb-card-pct">${p}%</div>
