@@ -322,6 +322,18 @@ input[type=number]{-moz-appearance:textfield}
 .pb-item{display:flex;align-items:center;gap:12px;cursor:pointer;padding:6px 8px;margin:0 -8px;border-radius:10px;transition:background .12s}
 .pb-item:hover{background:var(--bg4)}
 .pb-item.pb-active{background:rgba(0,232,150,.08);outline:1px solid rgba(0,232,150,.3)}
+.pb-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:10px 14px;max-height:480px;overflow-y:auto}
+.pb-card{display:flex;align-items:flex-start;gap:9px;cursor:pointer;padding:10px;border-radius:10px;border:1px solid var(--border1);background:var(--bg2);transition:background .12s,border-color .12s}
+.pb-card:hover{background:var(--bg3);border-color:var(--border2)}
+.pb-card.pb-active{background:rgba(0,232,150,.06);border-color:rgba(0,232,150,.4)}
+.pb-card-img{width:42px;height:42px;border-radius:8px;overflow:hidden;flex-shrink:0;background:var(--bg4);display:flex;align-items:center;justify-content:center;font-size:19px;position:relative}
+.pb-card-img img{width:100%;height:100%;object-fit:cover}
+.pb-card-body{flex:1;min-width:0}
+.pb-card-name{font-size:11.5px;color:var(--txt);font-weight:500;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin-bottom:5px}
+.pb-card-val{font-size:13px;font-weight:700;font-family:var(--mono);color:var(--txt);margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pb-card-bar{height:3px;border-radius:2px;background:var(--bg4);overflow:hidden;margin-bottom:3px}
+.pb-card-bar-fill{height:100%;border-radius:2px;transition:width .4s}
+.pb-card-pct{font-size:10px;color:var(--txt3);font-weight:600;font-family:var(--mono)}
 .abc-badge{font-size:10px;font-weight:700;padding:1px 7px;border-radius:4px;font-family:var(--mono);flex-shrink:0}
 .abc-a{color:#00c87a;background:rgba(0,200,122,.12);border:1px solid rgba(0,200,122,.3)}
 .abc-b{color:#ffd028;background:rgba(255,208,40,.1);border:1px solid rgba(255,208,40,.3)}
@@ -774,14 +786,13 @@ thead tr{background:linear-gradient(90deg,rgba(68,153,255,.04),rgba(160,112,255,
         <button class="pb-tab" onclick="setPbTab('logistica',this)">Logística</button>
         <button class="pb-tab" onclick="setPbTab('abc',this)">Curva ABC</button>
       </div>
+      <div id="pb-hint" style="padding:4px 14px 0;font-size:11px;color:var(--txt3)">Clique num produto para filtrar só as vendas dele.</div>
+      <div id="pb-filter-bar" class="pb-filter-bar" style="margin:6px 14px 0"></div>
       <div id="pb-list" class="pb-list"></div>
     </div>
 
     <!-- ALERTAS -->
     <div id="alertas-section" style="display:none;flex-direction:column;gap:10px;margin-bottom:4px"></div>
-
-    <!-- FILTER BAR -->
-    <div id="pb-filter-bar" class="pb-filter-bar"></div>
 
     <!-- TABLE -->
     <div class="tbl-card">
@@ -2737,6 +2748,8 @@ function setPbTab(t,el){
   document.querySelectorAll('.pb-tab').forEach(x=>x.classList.remove('on'));
   el.classList.add('on');
   pbTab=t;
+  const hint=document.getElementById('pb-hint');
+  if(hint)hint.style.display=t==='logistica'?'none':'';
   renderTopProducts(getFiltered());
 }
 function filterByProduct(nome){
@@ -2768,6 +2781,7 @@ async function renderTopProducts(data){
   const svgEdit=`<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
   // === LOGÍSTICA ===
   if(pbTab==='logistica'){
+    list.className='pb-list';
     const src=data.filter(s=>!s.cancelada);
     const full=src.filter(s=>s.fullML);
     const flex=src.filter(s=>!s.fullML&&s.flex);
@@ -2797,6 +2811,7 @@ async function renderTopProducts(data){
   }
   // === CURVA ABC ===
   if(pbTab==='abc'){
+    list.className='pb-grid';
     const src=data.filter(s=>!s.cancelada);
     const byP={};
     src.forEach(s=>{if(!byP[s.prod])byP[s.prod]=0;byP[s.prod]+=s.preco;});
@@ -2807,17 +2822,21 @@ async function renderTopProducts(data){
       acc+=fat;
       const cumPct=totalFat>0?acc/totalFat*100:0;
       const cls=cumPct<=80?'abc-a':cumPct<=95?'abc-b':'abc-c';
-      const lbl=cumPct<=80?'A':cumPct<=95?'B':'C';
+      const abcLbl=cumPct<=80?'A':cumPct<=95?'B':'C';
+      const abcColor=cumPct<=80?'#00c87a':cumPct<=95?'#ffd028':'#ff4d6a';
       const p=totalFat>0?+(fat/totalFat*100).toFixed(1):0;
       const cached=imgCache[nome.toLowerCase().trim()]||(sales.find(s=>s.prod===nome&&s.mlImage)||{}).mlImage||'';
       const imgHtml=cached?`<img src="${cached}" alt="${nome}" onerror="this.parentNode.innerHTML='📦'">` : '📦';
       const enc=encodeURIComponent(nome);
       const isActive=_pbProdFilter===nome;
-      return`<div class="pb-item${isActive?' pb-active':''}" onclick="filterByProduct(decodeURIComponent('${enc}'))">
-        <span class="abc-badge ${cls}">${lbl}</span>
-        <div class="pb-img">${imgHtml}<button class="img-edit-btn" onclick="event.stopPropagation();editImg(decodeURIComponent('${enc}'))" data-tip="Alterar imagem">${svgEdit}</button></div>
-        <div class="pb-info"><span class="pb-name">${nome}</span><div style="height:3px;border-radius:2px;background:var(--bg4);margin-top:4px;overflow:hidden"><div style="height:100%;width:${p}%;background:var(--green);border-radius:2px"></div></div></div>
-        <div style="text-align:right;flex-shrink:0"><span class="pb-val">${brl(fat)}</span><div style="font-size:10px;color:var(--txt3)">${p}%</div></div>
+      return`<div class="pb-card${isActive?' pb-active':''}" onclick="filterByProduct(decodeURIComponent('${enc}'))">
+        <div class="pb-card-img" style="position:relative">${imgHtml}<span class="abc-badge ${cls}" style="position:absolute;bottom:2px;right:2px;padding:0 4px;font-size:9px">${abcLbl}</span><button class="img-edit-btn" onclick="event.stopPropagation();editImg(decodeURIComponent('${enc}'))" data-tip="Alterar imagem">${svgEdit}</button></div>
+        <div class="pb-card-body">
+          <div class="pb-card-name">${nome}</div>
+          <div class="pb-card-val">${brl(fat)}</div>
+          <div class="pb-card-bar"><div class="pb-card-bar-fill" style="width:${p}%;background:${abcColor}"></div></div>
+          <div class="pb-card-pct">${p}%</div>
+        </div>
       </div>`;
     }).join('');
     if(!sorted.length)list.innerHTML='<div style="padding:16px;text-align:center;color:var(--txt3);font-size:12px">Nenhuma venda no período.</div>';
@@ -2837,31 +2856,29 @@ async function renderTopProducts(data){
   const key=pbTab==='lucro'?'lucro':pbTab==='vendas'?'vendas':'fat';
   const prods=Object.entries(byP).sort((a,b)=>b[1][key]-a[1][key]);
   const total=prods.reduce((s,[,v])=>s+(v[key]>0?v[key]:0),0);
-  const color=pbTab==='lucro'?'#00d68f':pbTab==='vendas'?'#9d7aff':(isCancel||isDevol)?'#ff4d6a':'#00d68f';
+  const barColor=pbTab==='lucro'?'#00d68f':pbTab==='vendas'?'#9d7aff':(isCancel||isDevol)?'#ff4d6a':'#00d68f';
   if(!prods.length){
+    list.className='pb-list';
     list.innerHTML=`<div style="padding:16px;text-align:center;color:var(--txt3);font-size:12px">Nenhum registro no período.</div>`;
     return;
   }
+  list.className='pb-grid';
   list.innerHTML=prods.map(([nome,v])=>{
     const val=v[key];
     const p=total>0?Math.max(0,+(val/total*100).toFixed(1)):0;
-    const display=pbTab==='vendas'?val+' un.':brls(val);
+    const display=pbTab==='vendas'?(val+' un.'):brls(val);
     const cached=imgCache[nome.toLowerCase().trim()]||(sales.find(s=>s.prod===nome&&s.mlImage)||{}).mlImage||'';
     const imgHtml=cached?`<img src="${cached}" alt="${nome}" onerror="this.parentNode.innerHTML='📦'">` : '📦';
     const enc=encodeURIComponent(nome);
     const isActive=_pbProdFilter===nome;
-    return`<div class="pb-item${isActive?' pb-active':''}" onclick="filterByProduct(decodeURIComponent('${enc}'))">
-      <div class="pb-circ" style="width:44px;height:44px;flex-shrink:0">
-        <svg viewBox="0 0 36 36" width="44" height="44">
-          <circle cx="18" cy="18" r="15.9" fill="none" stroke="var(--bg4)" stroke-width="3"/>
-          <circle cx="18" cy="18" r="15.9" fill="none" stroke="${color}" stroke-width="3"
-                  stroke-dasharray="${p} ${100-p}" stroke-dashoffset="25" stroke-linecap="round"/>
-        </svg>
-        <div class="pb-pct" style="font-size:9.5px">${p}%</div>
+    return`<div class="pb-card${isActive?' pb-active':''}" onclick="filterByProduct(decodeURIComponent('${enc}'))">
+      <div class="pb-card-img">${imgHtml}<button class="img-edit-btn" onclick="event.stopPropagation();editImg(decodeURIComponent('${enc}'))" data-tip="Alterar imagem">${svgEdit}</button></div>
+      <div class="pb-card-body">
+        <div class="pb-card-name">${nome}</div>
+        <div class="pb-card-val">${display}</div>
+        <div class="pb-card-bar"><div class="pb-card-bar-fill" style="width:${p}%;background:${barColor}"></div></div>
+        <div class="pb-card-pct">${p}%</div>
       </div>
-      <div class="pb-img">${imgHtml}<button class="img-edit-btn" onclick="event.stopPropagation();editImg(decodeURIComponent('${enc}'))" data-tip="Alterar imagem">${svgEdit}</button></div>
-      <div class="pb-info"><span class="pb-name">${nome}</span></div>
-      <span class="pb-val">${display}</span>
     </div>`;
   }).join('');
 }
