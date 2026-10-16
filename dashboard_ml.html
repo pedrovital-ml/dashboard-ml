@@ -2817,8 +2817,9 @@ async function renderTopProducts(data){
     const src=data.filter(s=>!s.cancelada);
     const byP={};
     src.forEach(s=>{if(!byP[s.prod])byP[s.prod]=0;byP[s.prod]+=s.preco;});
-    const sorted=Object.entries(byP).sort((a,b)=>b[1]-a[1]);
-    const totalFat=sorted.reduce((a,[,v])=>a+v,0);
+    const sortedAll=Object.entries(byP).sort((a,b)=>b[1]-a[1]);
+    const totalFat=sortedAll.reduce((a,[,v])=>a+v,0);
+    const sorted=sortedAll.slice(0,20);
     let acc=0;
     list.innerHTML=sorted.map(([nome,fat])=>{
       acc+=fat;
@@ -2834,13 +2835,15 @@ async function renderTopProducts(data){
       return`<div class="pb-card${isActive?' pb-active':''}" onclick="filterByProduct(decodeURIComponent('${enc}'))">
         <div class="pb-card-img" style="position:relative">${imgHtml}<span class="abc-badge ${cls}" style="position:absolute;bottom:2px;right:2px;padding:0 4px;font-size:9px">${abcLbl}</span><button class="img-edit-btn" onclick="event.stopPropagation();editImg(decodeURIComponent('${enc}'))" data-tip="Alterar imagem">${svgEdit}</button></div>
         <div class="pb-card-body">
-          <div class="pb-card-name">${nome}</div>
-          <div class="pb-card-val">${brl(fat)}</div>
+          <div style="display:flex;align-items:baseline;gap:6px;margin-bottom:3px">
+            <span class="pb-card-name" style="flex:1">${nome}</span>
+            <span class="pb-card-val">${brl(fat)}</span>
+          </div>
           <div class="pb-card-bar"><div class="pb-card-bar-fill" style="width:${p}%;background:${abcColor}"></div></div>
           <div class="pb-card-pct">${p}%</div>
         </div>
       </div>`;
-    }).join('');
+    }).join('')+(sortedAll.length>20?`<div style="grid-column:1/-1;text-align:center;font-size:11px;color:var(--txt3);padding:8px 0">Mostrando top 20 de ${sortedAll.length} produtos únicos</div>`:'');
     if(!sorted.length)list.innerHTML='<div style="padding:16px;text-align:center;color:var(--txt3);font-size:12px">Nenhuma venda no período.</div>';
     return;
   }
@@ -2856,14 +2859,16 @@ async function renderTopProducts(data){
     byP[s.prod].vendas+=s.qtd;
   });
   const key=pbTab==='lucro'?'lucro':pbTab==='vendas'?'vendas':'fat';
-  const prods=Object.entries(byP).sort((a,b)=>b[1][key]-a[1][key]);
-  const total=prods.reduce((s,[,v])=>s+(v[key]>0?v[key]:0),0);
+  const prodsAll=Object.entries(byP).sort((a,b)=>b[1][key]-a[1][key]);
+  const total=prodsAll.reduce((s,[,v])=>s+(v[key]>0?v[key]:0),0);
   const barColor=pbTab==='lucro'?'#00d68f':pbTab==='vendas'?'#9d7aff':(isCancel||isDevol)?'#ff4d6a':'#00d68f';
-  if(!prods.length){
+  if(!prodsAll.length){
     list.className='pb-list';
     list.innerHTML=`<div style="padding:16px;text-align:center;color:var(--txt3);font-size:12px">Nenhum registro no período.</div>`;
     return;
   }
+  const TOP=20;
+  const prods=prodsAll.slice(0,TOP);
   list.className='pb-grid';
   list.innerHTML=prods.map(([nome,v])=>{
     const val=v[key];
@@ -2876,13 +2881,15 @@ async function renderTopProducts(data){
     return`<div class="pb-card${isActive?' pb-active':''}" onclick="filterByProduct(decodeURIComponent('${enc}'))">
       <div class="pb-card-img">${imgHtml}<button class="img-edit-btn" onclick="event.stopPropagation();editImg(decodeURIComponent('${enc}'))" data-tip="Alterar imagem">${svgEdit}</button></div>
       <div class="pb-card-body">
-        <div class="pb-card-name">${nome}</div>
-        <div class="pb-card-val">${display}</div>
+        <div style="display:flex;align-items:baseline;gap:6px;margin-bottom:3px">
+          <span class="pb-card-name" style="flex:1">${nome}</span>
+          <span class="pb-card-val">${display}</span>
+        </div>
         <div class="pb-card-bar"><div class="pb-card-bar-fill" style="width:${p}%;background:${barColor}"></div></div>
         <div class="pb-card-pct">${p}%</div>
       </div>
     </div>`;
-  }).join('');
+  }).join('')+(prodsAll.length>TOP?`<div style="grid-column:1/-1;text-align:center;font-size:11px;color:var(--txt3);padding:8px 0">Mostrando top ${TOP} de ${prodsAll.length} produtos únicos</div>`:'');
 }
 
 function calcPrev(){
